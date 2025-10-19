@@ -4,3 +4,4 @@ praw
 transformers
 torch
 pandas
+fuzzywuzzy[speedup] # Optional: for better de-duplication
