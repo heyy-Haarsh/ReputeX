@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Streamlit
+# CRITICAL: Ignore your local secrets file!
+.streamlit/secrets.toml
+
+# Local Data Files
+*.csv
+*.pdf
