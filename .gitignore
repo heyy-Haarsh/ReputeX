@@ -18,6 +18,7 @@ env/
 
 # Local Data Files
 *.csv
+<<<<<<< HEAD
 *.pdf
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -226,3 +227,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+=======
+*.pdf
+>>>>>>> 504b7b0b896f3169c40463c35a2021a4a4295599
