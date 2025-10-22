@@ -1,0 +1,35 @@
+// src/App.jsx
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
+import { GlobalStyles } from './GlobalStyles';
+import { theme } from '../src/theme.js';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import Homepage from './pages/Dashboard';
+
+import Dashboard from './pages/Dashboard';
+import Leaderboard from './pages/Leaderboard';
+
+
+
+function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      <GlobalStyles />
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Homepage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        {/* <Route path="/greenwash-detector" element={<GreenwashDetector />} /> */}
+        {/* <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} /> */}
+
+      </Routes>
+      <Footer />
+    </ThemeProvider>
+  );
+}
+
+export default App;
