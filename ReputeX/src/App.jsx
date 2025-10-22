@@ -6,10 +6,12 @@ import { GlobalStyles } from './GlobalStyles';
 import { theme } from '../src/theme.js';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Homepage from './pages/Dashboard';
-
+import Homepage from './pages/Homepage';
 import Dashboard from './pages/Dashboard';
 import Leaderboard from './pages/Leaderboard';
+
+import About from './pages/About';
+import Contact from './pages/Contact';
 
 
 
@@ -23,8 +25,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         {/* <Route path="/greenwash-detector" element={<GreenwashDetector />} /> */}
-        {/* <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} /> */}
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
 
       </Routes>
       <Footer />
