@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiLoader, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+// Use FiAlertTriangle for risks, FiInfo for tooltips
+import { FiSearch, FiLoader, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiXCircle, FiInfo, FiAlertTriangle } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
-// --- STYLED COMPONENTS (Keep all from your original code) ---
+// --- STYLED COMPONENTS (Includes RiskAreaSection) ---
 const DashboardPage = styled.div`
   background: ${props => props.theme.colors.darkBg};
   min-height: 100vh;
@@ -234,6 +235,7 @@ const ScoreCard = styled(motion.div)`
   padding: 2.5rem;
   text-align: center;
   transition: all 0.4s ease;
+  position: relative; /* Added for tooltip positioning */
 
   &:hover {
     transform: translateY(-10px);
@@ -241,6 +243,53 @@ const ScoreCard = styled(motion.div)`
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px ${props => props.$color}40;
   }
 `;
+
+// Tooltip styles
+const TooltipIcon = styled(FiInfo)`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+  color: ${props => props.theme.colors.textSecondary};
+  cursor: help;
+
+  &:hover + span {
+    visibility: visible;
+    opacity: 1;
+  }
+`;
+
+const TooltipText = styled.span`
+  visibility: hidden;
+  width: 250px;
+  background-color: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: ${props => props.theme.borderRadius.sm};
+  padding: 10px;
+  position: absolute;
+  z-index: 10;
+  bottom: 125%; /* Position above the icon */
+  left: 50%;
+  margin-left: -125px; /* Center the tooltip */
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.9rem;
+  line-height: 1.4;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+  }
+`;
+
+
 const ScoreCircle = styled.div`
   width: 150px;
   height: 150px;
@@ -261,7 +310,7 @@ const ChartsSection = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
   margin-top: 4rem;
-  margin-bottom: 4rem; /* Added margin */
+  margin-bottom: 4rem;
 
   @media (max-width: ${props => props.theme.breakpoints.tablet}) {
     grid-template-columns: 1fr;
@@ -304,11 +353,11 @@ const ErrorMessage = styled(motion.div)`
     color: ${props => props.theme.colors.textSecondary};
   }
 `;
-// --- ADD STYLED COMPONENTS FOR FEEDS ---
 const FeedsSection = styled.div`
   margin-top: 4rem;
+  margin-bottom: 4rem; /* Added margin */
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Two columns for News and Reddit */
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
   @media (max-width: ${props => props.theme.breakpoints.tablet}) {
     grid-template-columns: 1fr;
@@ -319,9 +368,15 @@ const ModuleCard = styled(motion.div)`
   background: rgba(0, 255, 170, 0.03);
   border: 1px solid ${props => props.theme.colors.border};
   border-radius: ${props => props.theme.borderRadius.lg};
-  padding: 1.5rem;
-  max-height: 600px; /* Limit height and allow scrolling */
+  padding: 1.5rem 2rem;
+  max-height: 600px;
   overflow-y: auto;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: ${props => props.theme.colors.border}; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: ${props => props.theme.colors.primaryGreen}80; }
 
   h3 {
     font-size: 1.5rem;
@@ -329,6 +384,11 @@ const ModuleCard = styled(motion.div)`
     color: ${props => props.theme.colors.textPrimary};
     border-bottom: 1px solid ${props => props.theme.colors.border};
     padding-bottom: 0.8rem;
+    position: sticky;
+    top: -1.5rem;
+    background: rgba(17, 17, 17, 0.95); /* Adjust background for sticky header */
+    padding-top: 1.5rem;
+    z-index: 5;
   }
 `;
 
@@ -337,31 +397,50 @@ const FeedItem = styled.div`
   padding-bottom: 1.5rem;
   border-bottom: 1px solid ${props => props.theme.colors.borderFaint};
 
-  &:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
+  &:last-child { border-bottom: none; margin-bottom: 0; }
+
+  p { color: ${props => props.theme.colors.textSecondary}; margin-bottom: 0.5rem; line-height: 1.6; }
+  p strong { color: ${props => props.theme.colors.textPrimary}; }
+  small { color: ${props => props.theme.colors.textMuted}; font-size: 0.9em; }
+  i { color: #aaa; } /* Explanation style */
+  a { color: ${props => props.theme.colors.primaryGreen}; text-decoration: none; font-weight: 600; font-size: 0.9em; word-break: break-all; &:hover { text-decoration: underline; } }
+`;
+
+// --- Renamed SuggestionsSection to RiskAreaSection ---
+const RiskAreaSection = styled(motion.div)`
+  margin-top: 4rem;
+  background: rgba(255, 170, 0, 0.05); /* Orange hint for risk */
+  border: 1px solid ${props => props.theme.colors.border};
+  border-left: 5px solid #ffc107; /* Orange accent */
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 2.5rem;
+
+  h3 {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    color: ${props => props.theme.colors.textPrimary};
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    svg { color: #ffc107; flex-shrink: 0; } /* Orange icon */
   }
 
-  p {
+  ul { list-style: none; padding-left: 0; }
+  li {
     color: ${props => props.theme.colors.textSecondary};
-    margin-bottom: 0.5rem;
-    line-height: 1.6;
-  }
-  p strong {
-     color: ${props => props.theme.colors.textPrimary};
-  }
-  small {
-    color: ${props => props.theme.colors.textMuted};
-    font-size: 0.9em;
-  }
-  a {
-    color: ${props => props.theme.colors.primaryGreen};
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9em;
-    word-break: break-all; /* Prevent long URLs from breaking layout */
-    &:hover {
-      text-decoration: underline;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+    position: relative;
+    &:last-child { margin-bottom: 0; }
+    &::before {
+       content: '⚠️'; /* Warning emoji */
+       display: inline-block;
+       position: absolute;
+       left: 0;
+       top: 2px;
+       font-size: 1rem;
     }
   }
 `;
@@ -369,107 +448,79 @@ const FeedItem = styled.div`
 
 
 const features = [
-  { icon: <FiSearch />, title: 'Real-Time Data', description: 'Fetches latest news & Reddit discussions.', color: '#00ff88' },
-  { icon: <FiTrendingUp />, title: 'AI Classification', description: 'Classifies content into E, S, G categories.', color: '#00ddbb' },
-  { icon: <FiAlertCircle />, title: 'Sentiment Analysis', description: 'Analyzes public sentiment for scores.', color: '#00bb99' },
-  { icon: <FiCheckCircle />, title: 'Overall Scoring', description: 'Generates overall ESG reputation score.', color: '#00ffaa' }
+  // ... (Keep features array as is) ...
 ];
 
 // --- === MAIN COMPONENT === ---
 const Dashboard = () => {
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState(null); // Will store the full JSON from backend
+  const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
 
-  // --- MODIFIED handleSearch function ---
+  // --- handleSearch function (no changes needed) ---
   const handleSearch = async (e) => {
-    e.preventDefault(); // Prevent default form submission
-
-    if (!companyName.trim()) {
-      setError('Please enter a company name');
-      setResults(null); // Clear results on empty search
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setResults(null); // Clear previous results
-
-    // API URL for your FastAPI backend (running on port 8000)
+    e.preventDefault();
+    if (!companyName.trim()) { setError('Please enter a company name'); setResults(null); return; }
+    setLoading(true); setError(null); setResults(null);
     const apiUrl = `http://localhost:8000/api/analyze?company=${encodeURIComponent(companyName)}`;
-
     try {
-      console.log(`Fetching: ${apiUrl}`); // Log URL
-      const response = await fetch(apiUrl, {
-        method: 'GET', // Use GET
-        headers: { 'Accept': 'application/json' },
-      });
-      console.log(`Response Status: ${response.status}`); // Log Status
-
+      console.log(`Fetching: ${apiUrl}`);
+      const response = await fetch(apiUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+      console.log(`Response Status: ${response.status}`);
       if (!response.ok) {
         let errorMsg = `HTTP error! status: ${response.status}`;
-        try {
-            const errorData = await response.json();
-            errorMsg = errorData.message || errorData.detail || errorMsg; // Check for backend error messages
-        } catch (jsonError) {
-             errorMsg = response.statusText || errorMsg;
-        }
+        try { const errorData = await response.json(); errorMsg = errorData.message || errorData.detail || errorMsg; }
+        catch (jsonError) { errorMsg = response.statusText || errorMsg; }
         throw new Error(errorMsg);
       }
-
-      const data = await response.json();
-      console.log("Data received:", data); // Log Data
-
-      // Check for application-level errors returned in the JSON
-      if (data.error) {
-        throw new Error(data.message || data.error);
-      }
-
-      setResults(data); // Store the entire successful result object
-
+      const data = await response.json(); console.log("Data received:", data);
+      if (data.error) { throw new Error(data.message || data.error); }
+      setResults(data);
     } catch (err) {
-      console.error("Error fetching analysis:", err); // Log the full error to console
-      setError(err.message || 'Failed to fetch ESG data. Is the backend server running?'); // Show user-friendly error
-    } finally {
-      setLoading(false); // Ensure loading stops
-    }
+      console.error("Error fetching analysis:", err);
+      setError(err.message || 'Failed to fetch ESG data. Is the backend server running?');
+    } finally { setLoading(false); }
   };
   // --- END handleSearch function ---
 
 
-  // Helper to safely get score, defaulting to 0 for charts/progress bars if N/A
+  // --- Helper functions (Updated getScoreValue to return 50 for N/A) ---
   const getScoreValue = (score) => {
-    // Check for "N/A", null, undefined before converting to Number
-    return (score === "N/A" || score === null || score === undefined) ? 0 : Number(score);
+    // Return 50 if "N/A" for visual consistency in progress bars/charts
+    return (score === "N/A" || score === null || score === undefined) ? 50 : Number(score);
   };
-
-  // Helper function to get color based on score
   const getScoreColor = (scoreValue) => {
-    const numericScore = getScoreValue(scoreValue); // Use helper here too
-    if (numericScore === 0 && scoreValue === "N/A") return 'grey'; // Color for N/A
+    // Use the ORIGINAL score value ("N/A" or number) for color logic
+    if (scoreValue === "N/A") return 'grey'; // Specific color for N/A display
+    const numericScore = Number(scoreValue); // Convert potential number string
     if (numericScore >= 75) return '#00ff88'; // Bright Green
     if (numericScore >= 50) return '#00ddbb'; // Teal
     if (numericScore >= 25) return '#ffc107'; // Yellow/Orange
     return '#ff6b6b'; // Red
   };
+   // --- End helper functions ---
 
-  // --- Data preparation for charts using helper function ---
-  const overallScoreValue = results ? getScoreValue(results.overall_score) : 0;
-  const envScoreValue = results?.scores ? getScoreValue(results.scores.environmental) : 0;
-  const socScoreValue = results?.scores ? getScoreValue(results.scores.social) : 0;
-  const govScoreValue = results?.scores ? getScoreValue(results.scores.governance) : 0;
+
+  // --- Data preparation for charts (Use getChartScoreValue which maps N/A to 0) ---
+   const getChartScoreValue = (score) => {
+     // Return 0 if N/A for chart calculations
+     return (score === "N/A" || score === null || score === undefined) ? 0 : Number(score);
+   };
+  const overallScoreValueForChart = results ? getChartScoreValue(results.overall_score) : 0;
+  const envScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.environmental) : 0;
+  const socScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.social) : 0;
+  const govScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.governance) : 0;
 
   const radarData = results ? [
-    { subject: 'Environmental', score: envScoreValue, fullMark: 100 },
-    { subject: 'Social', score: socScoreValue, fullMark: 100 },
-    { subject: 'Governance', score: govScoreValue, fullMark: 100 }
+    { subject: 'Environmental', score: envScoreValueForChart, fullMark: 100 },
+    { subject: 'Social', score: socScoreValueForChart, fullMark: 100 },
+    { subject: 'Governance', score: govScoreValueForChart, fullMark: 100 }
   ] : [];
-
   const barData = results ? [
-    { name: 'Env.', score: envScoreValue },
-    { name: 'Soc.', score: socScoreValue },
-    { name: 'Gov.', score: govScoreValue }
+    { name: 'Env.', score: envScoreValueForChart },
+    { name: 'Soc.', score: socScoreValueForChart },
+    { name: 'Gov.', score: govScoreValueForChart }
   ] : [];
   // --- End data preparation ---
 
@@ -479,152 +530,126 @@ const Dashboard = () => {
       {/* Hero Section */}
       <HeroSection>
         <HeroContent>
-           <HeroTitle /* ... */ >ReputeX ESG Tracker</HeroTitle> {/* Updated Name */}
-           <HeroSubtitle /* ... */ >
+           <HeroTitle initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+             ReputeX ESG Tracker
+           </HeroTitle>
+           <HeroSubtitle initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}>
              Analyze any company's Environmental, Social, and Governance performance
              in real-time using AI-powered analysis from news and social media.
            </HeroSubtitle>
-
-          {/* Search Bar */}
-          <SearchSection /* ... */ >
+          <SearchSection initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }} >
             <form onSubmit={handleSearch}>
-              <SearchContainer>
-                <SearchInput
-                  type="text"
-                  placeholder="Enter company name (e.g., Tesla, Apple, Tata)..."
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  disabled={loading}
-                />
-                <SearchButton
-                  type="submit"
-                  disabled={loading}
-                  whileHover={{ scale: loading ? 1 : 1.05 }}
-                  whileTap={{ scale: loading ? 1 : 0.95 }}
-                >
-                  {loading ? (
-                    <><LoadingSpinner><FiLoader /></LoadingSpinner>Analyzing...</>
-                  ) : (
-                    <><FiSearch />Analyze</>
-                  )}
-                </SearchButton>
-              </SearchContainer>
+               <SearchContainer>
+                 <SearchInput
+                   type="text"
+                   placeholder="Enter company name (e.g., Tesla, Apple, Tata)..."
+                   value={companyName}
+                   onChange={(e) => setCompanyName(e.target.value)}
+                   disabled={loading}
+                 />
+                 <SearchButton type="submit" disabled={loading} whileHover={{ scale: loading ? 1 : 1.05 }} whileTap={{ scale: loading ? 1 : 0.95 }}>
+                   {loading ? ( <><LoadingSpinner><FiLoader /></LoadingSpinner>Analyzing...</> ) : ( <><FiSearch />Analyze</> )}
+                 </SearchButton>
+               </SearchContainer>
             </form>
           </SearchSection>
         </HeroContent>
       </HeroSection>
 
-      {/* Features Section (Show only if no results/loading/error) */}
-      {!results && !loading && !error && (
-         <FeaturesSection>
-             <FeaturesGrid>
-                 {features.map((feature, index) => (
-                     <FeatureCard
-                       key={index} $color={feature.color}
-                       initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
-                       viewport={{ once: true }} transition={{ delay: index * 0.1, duration: 0.6 }}
-                     >
-                       <FeatureIcon $color={feature.color}>{feature.icon}</FeatureIcon>
-                       <FeatureTitle>{feature.title}</FeatureTitle>
-                       <FeatureDescription>{feature.description}</FeatureDescription>
-                     </FeatureCard>
-                 ))}
-             </FeaturesGrid>
-         </FeaturesSection>
-      )}
+      {/* Features Section (Keep as is) */}
+      {!results && !loading && !error && ( <FeaturesSection> {/* ... */} </FeaturesSection> )}
 
-      {/* Error Message */}
+      {/* Error Message (Keep as is) */}
       <AnimatePresence>
-        {error && (
-            <ErrorMessage /* ... */ >
-                <FiXCircle />
-                <h3>Error Analyzing Company</h3>
-                <p>{error}</p>
-            </ErrorMessage>
-        )}
+        {error && ( <ErrorMessage /* ... */ > {/* ... */} </ErrorMessage> )}
       </AnimatePresence>
 
       {/* Results Section */}
       <AnimatePresence>
-        {results && !error && ( // Only show results if results exist AND there's no error
-          <ResultsSection /* ... */ >
+        {results && !error && (
+          <ResultsSection initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} transition={{ duration: 0.8 }}>
             <ResultsHeader>
-              <h2>ESG Analysis: {results.company_name}</h2> {/* Use correct key */}
+              <h2>ESG Analysis: {results.company_name}</h2>
               <p>Analysis based on data fetched on {new Date().toLocaleDateString()}</p>
             </ResultsHeader>
 
             {/* Score Overview */}
             <ScoreOverview>
-              {/* Overall Score */}
-              <ScoreCard
-                $color={getScoreColor(results.overall_score)} // Use original score for color logic
-                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1, duration: 0.5 }}
-              >
-                <ScoreCircle>
-                  <CircularProgressbar
-                    value={overallScoreValue} // Use numeric value for bar
-                    text={`${results.overall_score}`} // Display original ("N/A" or number)
-                    styles={buildStyles({
-                      textColor: getScoreColor(results.overall_score), pathColor: getScoreColor(results.overall_score),
-                      trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px',
-                    })}
-                  />
-                </ScoreCircle>
-                <ScoreLabel>Overall Score</ScoreLabel>
-                <ScoreValue $color={getScoreColor(results.overall_score)}>
-                  {results.overall_score}{typeof results.overall_score === 'number' ? '/100' : ''}
-                </ScoreValue>
+              {/* Overall Score Card */}
+              <ScoreCard $color={getScoreColor(results.overall_score)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1, duration: 0.5 }}>
+                  <ScoreCircle>
+                    <CircularProgressbar
+                      // Use getScoreValue which defaults N/A to 50 for bar display
+                      value={getScoreValue(results.overall_score)}
+                      text={`${results.overall_score}`} // Display original text ("N/A" or number)
+                      styles={buildStyles({
+                          textColor: getScoreColor(results.overall_score),
+                          pathColor: getScoreColor(results.overall_score),
+                          trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px'
+                      })}
+                    />
+                  </ScoreCircle>
+                  <ScoreLabel>Overall Score</ScoreLabel>
+                  <ScoreValue $color={getScoreColor(results.overall_score)}>
+                    {results.overall_score}{typeof results.overall_score === 'number' ? '/100' : ''}
+                  </ScoreValue>
               </ScoreCard>
 
-              {/* Environmental Score */}
-              <ScoreCard $color="#00ff88" /* ... */ >
-                <ScoreCircle>
+              {/* Environmental Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.environmental)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
+                  <TooltipIcon />
+                  <TooltipText>Environmental factors: Climate impact, resource use, pollution, sustainability efforts. (Relates to GRI 300 series / SASB industry specifics)</TooltipText>
+                  <ScoreCircle>
                    <CircularProgressbar
-                     value={envScoreValue}
+                     value={getScoreValue(results.scores?.environmental)}
                      text={`${results.scores?.environmental ?? 'N/A'}`}
-                     styles={buildStyles({ textColor: '#00ff88', pathColor: '#00ff88', trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.environmental), pathColor: getScoreColor(results.scores?.environmental), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
                    />
                 </ScoreCircle>
                 <ScoreLabel>Environmental</ScoreLabel>
-                <ScoreValue $color="#00ff88">
+                <ScoreValue $color={getScoreColor(results.scores?.environmental)}>
                   {results.scores?.environmental ?? 'N/A'}{typeof results.scores?.environmental === 'number' ? '/100' : ''}
                 </ScoreValue>
               </ScoreCard>
 
-              {/* Social Score */}
-              <ScoreCard $color="#00ddbb" /* ... */ >
-                 <ScoreCircle>
+              {/* Social Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.social)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, duration: 0.5 }}>
+                   <TooltipIcon />
+                   <TooltipText>Social factors: Employee relations, diversity, human rights, community impact, product safety. (Relates to GRI 400 series / SASB human capital)</TooltipText>
+                   <ScoreCircle>
                    <CircularProgressbar
-                     value={socScoreValue}
+                     value={getScoreValue(results.scores?.social)}
                      text={`${results.scores?.social ?? 'N/A'}`}
-                     styles={buildStyles({ textColor: '#00ddbb', pathColor: '#00ddbb', trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.social), pathColor: getScoreColor(results.scores?.social), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
                    />
                  </ScoreCircle>
                 <ScoreLabel>Social</ScoreLabel>
-                <ScoreValue $color="#00ddbb">
+                <ScoreValue $color={getScoreColor(results.scores?.social)}>
                   {results.scores?.social ?? 'N/A'}{typeof results.scores?.social === 'number' ? '/100' : ''}
                 </ScoreValue>
               </ScoreCard>
 
-              {/* Governance Score */}
-              <ScoreCard $color="#00bb99" /* ... */ >
-                 <ScoreCircle>
+              {/* Governance Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.governance)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, duration: 0.5 }}>
+                   <TooltipIcon />
+                   <TooltipText>Governance factors: Leadership ethics, board structure, executive pay, shareholder rights, transparency. (Relates to GRI 200 series / SASB governance metrics)</TooltipText>
+                   <ScoreCircle>
                    <CircularProgressbar
-                     value={govScoreValue}
+                     value={getScoreValue(results.scores?.governance)}
                      text={`${results.scores?.governance ?? 'N/A'}`}
-                     styles={buildStyles({ textColor: '#00bb99', pathColor: '#00bb99', trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.governance), pathColor: getScoreColor(results.scores?.governance), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
                    />
                  </ScoreCircle>
                 <ScoreLabel>Governance</ScoreLabel>
-                <ScoreValue $color="#00bb99">
+                <ScoreValue $color={getScoreColor(results.scores?.governance)}>
                   {results.scores?.governance ?? 'N/A'}{typeof results.scores?.governance === 'number' ? '/100' : ''}
                 </ScoreValue>
               </ScoreCard>
             </ScoreOverview>
 
-            {/* Charts */}
+            {/* Charts (Data prep uses getChartScoreValue which defaults N/A to 0) */}
             <ChartsSection>
-                 <ChartCard /* ... */ >
+                 <ChartCard initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 0.6 }}>
                      <h3>ESG Pillars Comparison</h3>
                      <ResponsiveContainer width="100%" height={350}>
                          <BarChart data={barData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
@@ -632,7 +657,6 @@ const Dashboard = () => {
                              <YAxis stroke="rgba(255, 255, 255, 0.5)" tick={{ fill: 'rgba(255, 255, 255, 0.7)' }} domain={[0, 100]}/>
                              <Tooltip contentStyle={{ background: 'rgba(0, 0, 0, 0.95)', border: '1px solid rgba(0, 255, 170, 0.3)', borderRadius: '8px', color: '#fff' }} />
                              <Bar dataKey="score" radius={[8, 8, 0, 0]}>
-                                 {/* Assign colors based on index/name if needed, otherwise default */}
                                  {barData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={['#00ff88', '#00ddbb', '#00bb99'][index % 3]} />
                                  ))}
@@ -641,7 +665,7 @@ const Dashboard = () => {
                      </ResponsiveContainer>
                  </ChartCard>
 
-                 <ChartCard /* ... */ >
+                 <ChartCard initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6, duration: 0.6 }}>
                      <h3>ESG Performance Radar</h3>
                      <ResponsiveContainer width="100%" height={350}>
                          <RadarChart data={radarData}>
@@ -654,6 +678,25 @@ const Dashboard = () => {
                  </ChartCard>
             </ChartsSection>
 
+            {/* --- Key ESG Risk Areas Section --- */}
+            {/* Conditionally render this section based on results.suggestions */}
+            {results.suggestions && results.suggestions.length > 0 && (
+                 <RiskAreaSection
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8, duration: 0.5 }}
+                 >
+                     <h3><FiAlertTriangle /> Key ESG Risk Areas Identified</h3>
+                     <ul>
+                         {/* Map over the suggestions array (containing risk summaries) */}
+                         {results.suggestions.map((riskSummary, index) => (
+                             <li key={index}>{riskSummary}</li>
+                         ))}
+                     </ul>
+                 </RiskAreaSection>
+            )}
+            {/* --- End Risk Areas Section --- */}
+
             {/* --- FEEDS SECTION --- */}
             <FeedsSection>
                 {results.modules?.map((module, index) => (
@@ -661,7 +704,7 @@ const Dashboard = () => {
                         key={index}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.7 + index * 0.1, duration: 0.5 }}
+                        transition={{ delay: 0.9 + index * 0.1, duration: 0.5 }}
                     >
                         <h3>{module.module_name} (Overall: {module.sentiment})</h3>
                         {module.feed && module.feed.length > 0 ? (
@@ -669,9 +712,20 @@ const Dashboard = () => {
                                 <FeedItem key={itemIndex}>
                                     <p><strong>Source:</strong> {item.source}</p>
                                     <p>{item.text}</p>
-                                    <p><small>Sentiment: {item.sentiment} ({item.sentiment_score}) | Category: {item.category?.split(':')[0]}</small></p>
+                                    <p>
+                                      <small>
+                                        Sentiment: {item.sentiment}
+                                        {/* Safely display sentiment score */}
+                                        ({item.sentiment_score !== undefined ? item.sentiment_score.toFixed(2) : 'N/A'})
+                                         | Category: {item.category?.split(':')[0]} {/* Show short category */}
+                                      </small>
+                                    </p>
+                                    {/* Display explanation if it exists */}
                                     {item.explanation && <p><small><i>Reason: {item.explanation}</i></small></p>}
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer">Read More &rarr;</a>
+                                    {/* Display link if valid */}
+                                    {item.url && item.url !== '#' && // Only show link if valid
+                                      <a href={item.url} target="_blank" rel="noopener noreferrer">Read More &rarr;</a>
+                                    }
                                 </FeedItem>
                             ))
                         ) : (
@@ -690,3 +744,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

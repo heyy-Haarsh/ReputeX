@@ -1,59 +1,55 @@
+import streamlit as st # Use streamlit for secrets
+import requests
 import fitz  # PyMuPDF
 import praw
+import prawcore # Import for exceptions
 import time
 from transformers import pipeline
-import os # For potentially loading keys from environment later
+import os
+import io # Import io for byte streams
 
 # --- 1. INITIALIZE ALL YOUR MODELS AND KEYS (GLOBAL) ---
-# These are loaded only ONCE when the module is imported (e.g., when FastAPI starts).
-
-# --- Reddit API Keys ---
-# TODO: Move these to environment variables or a config file for security
-REDDIT_CLIENT_ID = "O1rzwhhnFxVR0v_tm3_fFg" # Your Client ID
-REDDIT_CLIENT_SECRET = "BDUR2dgSzOm_Ki29-DEu7QFa7Y2Nkw" # Your Client Secret
-REDDIT_USER_AGENT = "ReputeXAnalyzer v1 by u/Overall_Tiger_2319" # Your Reddit Username
-
-# --- AI Model Pipelines ---
-# Initialize as None, attempt to load in a try block
 classifier = None
 sentiment_analyzer = None
 reddit = None
 
-print("Attempting to load AI models and connect to Reddit...")
+print("Attempting to load AI models and connect to Reddit (Greenwash)...")
 try:
-    # Model for classifying topics in the report (Zero-Shot)
+    # Model for classifying topics
+    device_option = -1 # Default to CPU
     classifier = pipeline(
         "zero-shot-classification",
-        model="facebook/bart-large-mnli"
+        model="facebook/bart-large-mnli",
+        device=device_option
     )
     print("Zero-shot classifier loaded.")
 
-    # Model for analyzing sentiment of Reddit posts
+    # Model for analyzing sentiment
     sentiment_analyzer = pipeline(
         "sentiment-analysis",
-        model="distilbert-base-uncased-finetuned-sst-2-english"
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        device=device_option
     )
     print("Sentiment analyzer loaded.")
 
 except Exception as e:
     print(f"FATAL ERROR: Could not load AI models: {e}")
-    # Consider raising an exception or handling this more gracefully depending on app needs
 
 # --- Reddit PRAW Client ---
 try:
-    reddit = praw.Reddit(
-        client_id=REDDIT_CLIENT_ID,
-        client_secret=REDDIT_CLIENT_SECRET,
-        user_agent=REDDIT_USER_AGENT,
-        # Adding read_only=True as we are only searching, not posting/commenting
-        read_only=True
-    )
-    # Check if connection is valid by trying to access a property
-    _ = reddit.user.me() # Accessing this forces authentication check
-    print("Successfully connected to Reddit API.")
+    # Use Streamlit secrets to get keys (same as ai_core.py)
+    if "REDDIT_CLIENT_ID" in st.secrets and "REDDIT_CLIENT_SECRET" in st.secrets:
+        reddit = praw.Reddit(
+            client_id=st.secrets["REDDIT_CLIENT_ID"],
+            client_secret=st.secrets["REDDIT_CLIENT_SECRET"],
+            user_agent="ReputeXGreenwash v1 by u/YourUsername", # Use a unique user agent
+            read_only=True
+        )
+        print("Successfully connected to Reddit API (Greenwash).")
+    else:
+        print("FATAL ERROR: Reddit credentials not found in secrets.toml.")
 except Exception as e:
     print(f"FATAL ERROR: Could not connect to Reddit: {e}")
-    print("Please check your API keys and user agent string.")
     # Reddit client remains None
 
 # --- 2. DEFINE YOUR HELPER FUNCTIONS ---
@@ -68,7 +64,7 @@ def extract_text_from_pdf_bytes(pdf_bytes):
         return None
     try:
         # Open the PDF from the byte stream
-        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        with fitz.open(stream=io.BytesIO(pdf_bytes), filetype="pdf") as doc: # Use io.BytesIO
             print(f"Reading PDF with {len(doc)} pages...")
             for page_num, page in enumerate(doc):
                 text += page.get_text()
@@ -81,14 +77,12 @@ def extract_text_from_pdf_bytes(pdf_bytes):
 def get_live_reddit_sentiment(company_name, topic):
     """
     Fetches real Reddit submissions, analyzes sentiment, and returns a score (0.0 to 1.0).
-    Uses V3 logic with truncation.
     """
-    # Check if Reddit client initialized successfully
     if not reddit:
         print("Reddit client not initialized. Skipping search.")
         return 0.5 # Return neutral
 
-    query = f'{company_name} {topic}'
+    query = f'"{company_name}" {topic}' # Use quotes for company name
     print(f"\nSearching Reddit for: {query}...")
 
     sentiment_scores = []
@@ -100,23 +94,20 @@ def get_live_reddit_sentiment(company_name, topic):
             query,
             sort="relevance",
             time_filter="month",
-            limit=25 # Limit results to avoid excessive processing
+            limit=25
         )
 
         for submission in search_results:
             posts_found += 1
             text_to_analyze = f"{submission.title}. {submission.selftext}"
 
-            # Skip if text is too short or clearly placeholder/removed
             if len(text_to_analyze) < 20 or submission.selftext == '[removed]' or submission.selftext == '[deleted]':
                 continue
 
-            # Ensure sentiment_analyzer loaded correctly
             if not sentiment_analyzer:
-                 print("Sentiment analyzer not available. Skipping analysis.")
-                 continue # Or return neutral 0.5? Decide on error handling.
+                print("Sentiment analyzer not available. Skipping analysis.")
+                continue
 
-            # Analyze sentiment with truncation for long posts
             try:
                 result = sentiment_analyzer(text_to_analyze, truncation=True, max_length=512)[0]
                 analyzed_count += 1
@@ -124,30 +115,28 @@ def get_live_reddit_sentiment(company_name, topic):
                 if result['label'] == 'POSITIVE':
                     sentiment_scores.append(result['score'])
                 else: # 'NEGATIVE'
-                    # Convert negative score (e.g., 0.99 NEG) to low positive scale score (e.g., 0.01)
                     sentiment_scores.append(1.0 - result['score'])
             except Exception as analysis_error:
                 print(f"Error during sentiment analysis for a post: {analysis_error}")
-                # Optionally skip this post or assign a neutral score
 
         if posts_found == 0:
             print("No Reddit submissions found for this topic.")
-            return 0.5 # Return neutral
+            return 0.5
 
         if not sentiment_scores:
-            print(f"Found {posts_found} posts, but none were suitable for analysis (e.g., too short, removed).")
-            return 0.5 # Return neutral
+            print(f"Found {posts_found} posts, but none were suitable for analysis.")
+            return 0.5
 
         average_score = sum(sentiment_scores) / len(sentiment_scores)
         print(f"Found {posts_found} posts, analyzed {analyzed_count}. Average sentiment: {average_score:.2f}")
         return average_score
 
-    except praw.exceptions.PRAWException as praw_error:
+    except (praw.exceptions.PRAWException, prawcore.exceptions.PrawcoreException) as praw_error:
         print(f"PRAW specific error searching Reddit: {praw_error}")
-        return 0.5 # Return neutral on API errors
+        return 0.5
     except Exception as e:
         print(f"General error searching Reddit or analyzing posts: {e}")
-        return 0.5 # Return neutral on other errors
+        return 0.5
 
 # --- 3. DEFINE YOUR "MASTER" FUNCTION (This is what FastAPI will call) ---
 
@@ -176,13 +165,39 @@ def run_full_analysis(company_name, pdf_file_bytes):
     report_text = extract_text_from_pdf_bytes(pdf_file_bytes)
     if not report_text:
         return {"status": "Error", "report": "Failed to extract text from the uploaded PDF."}
+    
+    # Simple keyword check for Greenwashing (vague vs. concrete)
+    weasel_words = ["aim to", "strive", "target", "plan to", "potential", "hope to", "intend to", "may", "could", "believe", "commit to", "should"]
+    concrete_words = ["achieved", "reduced", "increased", "implemented", "completed", "verified", "certified", "quantified", "%"]
+    
+    weasel_count = 0
+    concrete_count = 0
+    vague_flags = [] # <<< CHANGED: Store vague flags here
+    text_lower = report_text.lower()
+    for word in weasel_words:
+        count = text_lower.count(word)
+        if count > 0:
+            weasel_count += count
+            try:
+                index = text_lower.index(word)
+                snippet = "..." + report_text[max(0, index-30):min(len(report_text), index+len(word)+30)].replace("\n", " ") + "..."
+                vague_flags.append(f"Vague term found: {snippet}") # <<< CHANGED
+            except ValueError: pass
+    for word in concrete_words:
+        concrete_count += text_lower.count(word)
+    
+    total_relevant = weasel_count + concrete_count
+    if total_relevant == 0:
+        credibility_score = 50
+    else:
+        credibility_score = round((concrete_count / total_relevant) * 100)
+    
+    credibility_score = max(0, min(100, credibility_score)) # Clamp score
 
     # --- Step 2: Classify the PDF text for Topic Relevance ---
     print("Step 2: Analyzing report topics (Relevance)...")
-    # Use a larger sample for potentially better topic detection, but mindful of performance
-    text_sample = report_text[:4000] # Increased sample size
+    text_sample = report_text[:4000] # Use a large sample
 
-    # Define topics within the function or pass them in - ensures they are always available
     esg_topics = [
         "climate change", "renewable energy", "employee safety",
         "factory conditions", "data privacy", "supply chain",
@@ -195,56 +210,64 @@ def run_full_analysis(company_name, pdf_file_bytes):
         print("Report topic relevance analysis complete.")
     except Exception as e:
         print(f"Error during report topic classification: {e}")
-        return {"status": "Error", "report": f"Failed during report analysis: {e}"}
-
+        return {"status": "Error", "report": [f"Failed during report analysis: {e}"]} # Return error in list
 
     # --- Step 3 & 4: Loop Topics, Get Reddit Sentiment, Compare ---
     REPORT_RELEVANCE_THRESHOLD = 0.50 # If report relevance > 50%...
     REDDIT_SENTIMENT_THRESHOLD = 0.40 # ...and Reddit sentiment < 40% (negative)... -> Flag it!
-    inconsistencies = []
+    inconsistencies = [] # <<< CHANGED: Store inconsistency flags here
 
     print("\n" + "="*30)
     print(f"Step 3/4: Starting LIVE Reddit Analysis & Comparison for: {company_name}")
     print("="*30)
 
-    for topic in esg_topics: # Iterate through defined topics
-        report_relevance = report_scores.get(topic, 0) # Get relevance, default to 0 if topic missing
+    for topic in esg_topics:
+        report_relevance = report_scores.get(topic, 0)
+        # Skip Reddit search if topic isn't prominent in report
+        if (report_relevance < REPORT_RELEVANCE_THRESHOLD):
+            print(f"  - Skipping Reddit search for '{topic}' (Report Relevance: {report_relevance*100:.0f}%)")
+            continue
 
-        # Get live Reddit sentiment for this topic
         live_reddit_sentiment = get_live_reddit_sentiment(company_name, topic)
 
-        # Apply comparison logic
-        if (report_relevance > REPORT_RELEVANCE_THRESHOLD) and (live_reddit_sentiment < REDDIT_SENTIMENT_THRESHOLD):
+        if (live_reddit_sentiment < REDDIT_SENTIMENT_THRESHOLD):
             flag_message = (
                 f"HIGH RISK: Report features '{topic}' prominently (Relevance: {report_relevance*100:.0f}%), "
                 f"but public Reddit sentiment is negative (Score: {live_reddit_sentiment*100:.0f}%)."
             )
+            # Store the full inconsistency object
             inconsistencies.append({
                 "topic": topic,
                 "flag": flag_message,
-                "report_relevance": round(report_relevance, 2), # Store rounded scores
+                "report_relevance": round(report_relevance, 2),
                 "reddit_sentiment": round(live_reddit_sentiment, 2)
             })
-        # Optional: Add a small delay between Reddit searches if needed, PRAW handles some rate limiting
-        # time.sleep(0.5)
 
     # --- Step 5: Format and Return the Final Report ---
     print("\n--- Analysis Pipeline Complete ---")
-    if not inconsistencies:
-        final_report = {
-            "status": "Consistent",
-            "company_name": company_name,
-            "report": "No major inconsistencies found between the report's focus and public Reddit sentiment."
-        }
+    
+    # --- MODIFICATION: Return structured report ---
+    final_report = {
+        "company_name": company_name,
+        "credibility_score": credibility_score,
+        "vague_flags": vague_flags[:3], # Show top 3 vague flags
+        "inconsistencies": inconsistencies # Show all found inconsistencies
+    }
+    
+    # Set final status based on findings
+    if not vague_flags and not inconsistencies:
+        final_report["status"] = "Consistent"
+        # Add a default report message if both lists are empty
+        final_report["vague_flags"] = ["No vague language flags found."]
+        final_report["inconsistencies"] = [{"flag": "No major inconsistencies found between report and public sentiment."}]
     else:
-        final_report = {
-            "status": "Inconsistent",
-            "company_name": company_name,
-            "report": inconsistencies # List of flagged issues
-        }
+        final_report["status"] = "Inconsistent / Vague"
+        if not vague_flags: final_flags["vague_flags"] = ["No vague language flags found."]
+        if not inconsistencies: inconsistencies.append({"flag": "No major inconsistencies found."})
+    # --- END MODIFICATION ---
 
     print(f"Final Report Status for {company_name}: {final_report['status']}")
     return final_report
 
-# --- End of ai_core.py ---
-print("ai_core.py loaded. Functions defined.")
+print("greenwash_analyzer.py loaded. Functions defined.")
+

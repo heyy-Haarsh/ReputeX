@@ -9,11 +9,10 @@ import Footer from './components/Footer';
 import Homepage from './pages/Homepage';
 import Dashboard from './pages/Dashboard';
 import Leaderboard from './pages/Leaderboard';
-import GreenwashAnalyzer from './GreenwashAnalyzer.jsx'; // Your component
+// --- FIX 1: Correct the import path ---
+import GreenwashAnalyzer from './pages/GreenwashAnalyzer.jsx'; // It's in the 'pages' folder
 import About from './pages/About';
 import Contact from './pages/Contact';
-
-
 
 function App() {
   return (
@@ -25,11 +24,12 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
 
-        {/* --- ADD YOUR NEW ROUTE HERE --- */}
-        <Route path="/analyzer" element={<GreenwashAnalyzer />} />
-        {/* --- You can choose the path, "/analyzer" is a good option --- */}
+        {/* --- FIX 2: Use your desired path --- */}
+        <Route path="/greenwash-detector" element={<GreenwashAnalyzer />} />
+        {/* --- End Fix --- */}
 
-        <Route path="/GreenwashAnalyzer" element={<GreenwashAnalyzer />} />
+        {/* <Route path="/analyzer" element={<GreenwashAnalyzer />} /> // Removed old path */}
+        {/* <Route path="/GreenwashAnalyzer" element={<GreenwashAnalyzer />} /> // Removed old path */}
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
 

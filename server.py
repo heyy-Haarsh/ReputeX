@@ -1,60 +1,78 @@
 # server.py
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware # To allow React to call it
-import ai_core # Import your existing AI logic file
+from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+import ai_core
+import greenwash_analyzer
 import uvicorn
+import io
+import asyncio # <<< 1. IMPORT asyncio
 
-# Initialize the FastAPI app
 app = FastAPI()
 
-# --- CORS Middleware ---
-# This allows your React app (running on a different port)
-# to make requests to this backend server.
-# Be more specific with origins in production!
+# --- CORS Middleware (Keep as is) ---
 origins = [
-    "http://localhost",       # Allow localhost (standard)
-    "http://localhost:3000",  # Default React dev server port
-    "http://localhost:5173",  # Default Vite dev server port (likely yours)
-    # Add the URL of your deployed React app if you deploy it
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:5173",
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- API Endpoint Definition ---
-@app.get("/api/analyze") # The URL path React will call
-async def analyze_company(company: str): # Takes 'company' as a URL parameter (e.g., /api/analyze?company=Tesla)
-    """
-    Endpoint to trigger the ESG analysis for a given company.
-    """
+# --- /api/analyze Endpoint (Keep as is) ---
+@app.get("/api/analyze")
+async def analyze_company(company: str):
     print(f"API Server: Received request for company: {company}")
     try:
-        # Call your main analysis function from ai_core.py
-        result_data = ai_core.get_combined_analysis(company)
+        # --- Run main analysis in a thread to prevent blocking ---
+        result_data = await asyncio.to_thread(ai_core.get_combined_analysis, company)
         print("API Server: Analysis complete, sending response.")
-        return result_data # FastAPI automatically converts the dict to JSON
+        return result_data
     except Exception as e:
         print(f"API Server: Error during analysis: {e}")
-        # Return an error response (optional but good practice)
         return {"error": str(e), "message": "Failed to analyze company."}
 
-# --- (Optional) Add Endpoints for Other Features ---
-# Example for Leaderboard:
-# @app.get("/api/leaderboard")
-# async def get_leaderboard_data():
-#     try:
-#         leaderboard = ai_core.get_leaderboard() # Assuming you have this function
-#         return leaderboard
-#     except Exception as e:
-#         return {"error": str(e), "message": "Failed to get leaderboard."}
 
-# --- Run the server (for local development) ---
+# --- /api/analyze-greenwash Endpoint ---
+@app.post("/api/analyze-greenwash")
+async def analyze_greenwash_report( # <<< 2. Make sure this is 'async def'
+    company_name: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """
+    Endpoint to analyze an uploaded PDF for greenwashing.
+    """
+    print(f"API Server: Received Greenwash request for company: {company_name}")
+    print(f"API Server: Received file: {file.filename}")
+
+    try:
+        pdf_bytes = await file.read() # This part must be async
+        if not pdf_bytes:
+            return {"status": "Error", "report": "Uploaded file is empty."}
+        
+        print("API Server: Starting Greenwash analysis... (This may take a while)")
+
+        # --- 3. RUN THE SLOW, BLOCKING FUNCTION IN A THREAD ---
+        result_data = await asyncio.to_thread(
+            greenwash_analyzer.run_full_analysis, company_name, pdf_bytes
+        )
+        # --- End of Fix ---
+
+        print("API Server: Greenwash analysis complete, sending response.")
+        return result_data
+
+    except Exception as e:
+        print(f"API Server: Error during greenwash analysis: {e}")
+        return {"status": "Error", "report": str(e), "message": "Failed to process PDF file."}
+
+# --- (Optional) Leaderboard Endpoint ---
+# (If you have this, wrap its logic in 'await asyncio.to_thread' too)
+
+# --- Run the server (Keep as is) ---
 if __name__ == "__main__":
-    # Host='0.0.0.0' makes it accessible on your network
-    # Port 8000 is a common choice for backend APIs
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
