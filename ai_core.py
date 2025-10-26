@@ -1,5 +1,5 @@
 # This is your file: ai_core.py
-# Combines all logic: multi-API data fetching, executive search, AI analysis, weighted scoring
+# Combines all logic: multi-API data fetching, executive search, AI analysis, weighted scoring, and heatmap
 
 import streamlit as st
 import requests
@@ -8,6 +8,7 @@ import prawcore # Import specifically for exception handling
 import pandas as pd
 from transformers import pipeline
 import torch # Needed for checking CUDA availability
+import io # Needed for reading bytes from PDF
 
 # --- CONFIGURATION: Trusted Sources ---
 TRUSTED_NEWS_SOURCES = [
@@ -15,17 +16,43 @@ TRUSTED_NEWS_SOURCES = [
     "reuters", "associated press", "ap", "bloomberg", "afp",
     # Major Financial News
     "financial times", "wall street journal", "wsj", "cnbc", "forbes", "fortune", "reuters finance",
-    # Reputable Broad News (Examples - adjust for global context)
+    # Reputable Broad News
     "bbc news", "the guardian", "the new york times", "nyt", "washington post",
     "le monde", "der spiegel",
-    # Add major reputable Indian news sources if relevant for companies like Tata
+    # India-specific
     "the times of india", "the hindu", "business standard", "economic times", "ndtv profit", "livemint",
-    # Tech News (if relevant)
+    # Tech News
     "techcrunch", "wired", "the verge",
-    # Environmental News (Examples)
+    # Environmental News
     "reuters environment", "guardian environment", "national geographic", "inside climate news"
 ]
 TRUSTED_NEWS_SOURCES_LOWER = [source.lower() for source in TRUSTED_NEWS_SOURCES]
+
+# --- CONFIGURATION: Sub-Topic Keywords (Expanded) ---
+SUB_TOPIC_KEYWORDS = {
+    # Environmental
+    "Climate & Emissions": ["climate", "emission", "ghg", "greenhouse", "carbon", "decarbonization", "net-zero", "fossil fuel", "pollution"],
+    "Waste & Pollution": ["waste", "pollution", "spill", "landfill", "toxic", "plastic", "recycling", "hazardous", "effluent"],
+    "Resources & Biodiversity": ["water", "resource", "biodiversity", "conservation", "deforestation", "eco-friendly", "wildlife", "habitat", "forestry"],
+    
+    # Social
+    "Labor & Safety": ["labor", "employee safety", "wages", "union", "strike", "conditions", "layoff", "workplace", "injury", "overtime"],
+    "Diversity & Inclusion": ["diversity", "inclusion", "equality", "discrimination", "harassment", "pay gap", "minority", "lgbtq+", "gender"],
+    "Product & Data": ["product safety", "data privacy", "customer", "recall", "security", "privacy breach", "defect", "vulnerability"],
+    
+    # Governance
+    "Ethics & Compliance": ["ethics", "compliance", "lawsuit", "corruption", "bribery", "fraud", "scandal", "investigation", "misconduct", "antitrust"],
+    "Board & Executive": ["board", "executive pay", "ceo", "compensation", "shareholder", "proxy vote", "c-suite", "governance", "insider trading"],
+    "Transparency & Reporting": ["transparency", "reporting", "audit", "disclosure", "accounting", "misleading", "fraudulent"]
+}
+
+# Define the labels used in the heatmap in order
+HEATMAP_LABELS = [
+    "Climate & Emissions", "Waste & Pollution", "Resources & Biodiversity",
+    "Labor & Safety", "Diversity & Inclusion", "Product & Data",
+    "Ethics & Compliance", "Board & Executive", "Transparency & Reporting"
+]
+
 
 # --- 1. AI MODEL LOADING ---
 @st.cache_resource
@@ -64,7 +91,7 @@ def load_analyzers():
 def get_news(company_name: str, query_override: str = None) -> list:
     """ Fetches news articles for the company from GNews. Can use a specific query. """
     fetch_type = "general" if query_override is None else "specific"
-    print(f"AI Core: Fetching {fetch_type} news from GNews for '{company_name}'...") # Log clarity
+    print(f"AI Core: Fetching {fetch_type} news from GNews for '{company_name}'...")
     response = None
     try:
         api_key = st.secrets.get("GNEWS_API_KEY")
@@ -74,11 +101,10 @@ def get_news(company_name: str, query_override: str = None) -> list:
 
         if query_override:
             query = query_override
-            max_results = 7 # Fetch fewer for specific (exec) queries
+            max_results = 7
         else:
-            # Default Broader Query - JUST COMPANY NAME for wider reach
-            query = f'"{company_name}"'
-            max_results = 30 # Fetch more general news
+            query = f'"{company_name}"' # Broad query
+            max_results = 30
 
         url = "https://gnews.io/api/v4/search"
         params = {"q": query, "lang": "en", "max": max_results, "apikey": api_key, "in": "title,description", "sortby": "relevance"}
@@ -101,7 +127,7 @@ def get_news(company_name: str, query_override: str = None) -> list:
         # Filtering
         filtered_articles = []
         exclude_keywords = ["forest", "river", "rainforest", "jungle", "amazonas", "dorabji", "recipe", "horoscope", "obituary", "death anniversary", "sports", "cricket", "match", "score", "prediction", "chart"]
-        company_variants = [company_name.lower().strip()] # Use stripped lowercase name
+        company_variants = [company_name.lower().strip()]
         if company_name.lower().strip() == "tata": company_variants.extend(["tata group", "tata motors", "tata steel", "tcs", "tata power"])
 
         for article in articles:
@@ -112,7 +138,6 @@ def get_news(company_name: str, query_override: str = None) -> list:
             content_lower = title_lower + " " + desc_lower
             source_name = article['source']['name'].lower()
 
-            # Apply company variant check stricter only for general queries
             if query_override is None and not any(variant in content_lower for variant in company_variants): continue
             if any(keyword in content_lower for keyword in exclude_keywords): continue
 
@@ -159,7 +184,7 @@ def get_mediastack_news(company_name: str, query_override: str = None) -> list:
         if query_override:
             keywords = query_override
         else:
-            keywords = f'"{company_name}"' # Simpler query
+            keywords = f'"{company_name}"'
 
         url = "http://api.mediastack.com/v1/news"
         max_results = 30 if query_override is None else 7
@@ -186,7 +211,7 @@ def get_mediastack_news(company_name: str, query_override: str = None) -> list:
             content_lower = title_lower + " " + desc_lower
 
             if any(kw in title_lower for kw in exclude_keywords): continue
-            if query_override is None and company_name.lower() not in content_lower: continue # Check base name
+            if query_override is None and company_name.lower() not in content_lower: continue
 
             trust_score = 0.5
             if any(trusted in source_name for trusted in TRUSTED_NEWS_SOURCES_LOWER):
@@ -199,7 +224,7 @@ def get_mediastack_news(company_name: str, query_override: str = None) -> list:
             })
 
         print(f"Found {len(news_list)} relevant Mediastack articles after filtering.")
-        return news_list[:20] # Return up to 20
+        return news_list[:20]
 
     except requests.exceptions.Timeout:
         print("Error fetching Mediastack: Request timed out.")
@@ -230,7 +255,7 @@ def get_newsdata_news(company_name: str, query_override: str = None) -> list:
         if query_override:
             query = query_override
         else:
-            query = f'"{company_name}"' # Simpler query
+            query = f'"{company_name}"'
 
         url = "https://newsdata.io/api/1/news"
         params = {'apikey': api_key, 'q': query, 'language': 'en'}
@@ -269,7 +294,7 @@ def get_newsdata_news(company_name: str, query_override: str = None) -> list:
             })
 
         print(f"Found {len(news_list)} relevant Newsdata.io articles after filtering.")
-        limit = 10 if query_override is None else 5 # Newsdata free tier often limits to 10
+        limit = 10 if query_override is None else 5
         return news_list[:limit]
 
     except requests.exceptions.Timeout:
@@ -298,14 +323,14 @@ def get_reddit_posts(company_name: str) -> list:
         reddit = praw.Reddit(
             client_id=st.secrets["REDDIT_CLIENT_ID"],
             client_secret=st.secrets["REDDIT_CLIENT_SECRET"],
-            user_agent="ReputeX analysis script v1.2 (Contact: YourEmail@example.com)" # Updated user agent
+            user_agent="ReputeX analysis script v1.2 (Contact: YourEmail@example.com)"
         )
         
         subreddits_to_search = [
             "investing", "stocks", "wallstreetbets", "antiwork",
             "recruitinghell", "environment", "sustainability",
-            company_name.lower().replace(" ", ""), # e.g., "tatamotors"
-            "IndiaInvestments", "IndianStockMarket" # Added India-specific
+            company_name.lower().replace(" ", ""),
+            "IndiaInvestments", "IndianStockMarket"
         ]
 
         query_terms = [f'"{company_name}"']
@@ -345,9 +370,9 @@ def get_reddit_posts(company_name: str) -> list:
                         })
                         posts_found += 1
                     else: break
-            except (prawcore.exceptions.Forbidden, prawcore.exceptions.NotFound, praw.exceptions.PRAWException) as praw_e: # Catch specific PRAW errors
+            except (prawcore.exceptions.Forbidden, prawcore.exceptions.NotFound, praw.exceptions.PRAWException) as praw_e:
                  print(f"  - PRAW Error searching subreddit r/{sub}: {praw_e}")
-                 continue # Skip potentially private/banned/unavailable subs
+                 continue
             except Exception as sub_e:
                 print(f"  - General Error searching subreddit r/{sub}: {sub_e}")
                 continue
@@ -387,7 +412,6 @@ def find_key_executives(company_name: str) -> list:
             top_result = result['itemListElement'][0].get('result', {})
             result_name = top_result.get('name', '').lower()
             
-            # Check if KG result seems relevant
             if not any(variant in result_name for variant in company_variants) and company_name.lower() not in result_name:
                  print(f"Knowledge Graph top result '{result_name}' might not match '{company_name}'. Skipping executives.")
                  return []
@@ -407,7 +431,7 @@ def find_key_executives(company_name: str) -> list:
                  print("Knowledge Graph result format not as expected or missing detailed data.")
 
         print(f"AI Core: Found executives: {executives}")
-        return executives[:2] # Limit to max 2 executives
+        return executives[:2]
     except requests.exceptions.Timeout:
         print("Error calling Knowledge Graph API: Request timed out.")
         return []
@@ -419,7 +443,6 @@ def find_key_executives(company_name: str) -> list:
         print(f"Error processing Knowledge Graph result: {e}")
         return []
 
-# Fetch executive news using existing news functions with query override
 def get_executive_news(executives: list, company_name: str) -> list:
     """ Fetches news mentioning key executives + company using existing news functions. """
     if not executives: return []
@@ -429,10 +452,8 @@ def get_executive_news(executives: list, company_name: str) -> list:
     for person in executives:
         person_name = person['name']
         print(f"  - Searching news for {person_name} ({company_name})...")
-        # Query: Person AND Company
         person_query = f'"{person_name}" AND "{company_name}"'
 
-        # Call each news function with the override query
         try: all_executive_news.extend(get_news(company_name, query_override=person_query))
         except Exception as e_gn: print(f"Error in exec news fetch (GNews): {e_gn}")
         try: all_executive_news.extend(get_mediastack_news(company_name, query_override=person_query))
@@ -446,12 +467,12 @@ def get_executive_news(executives: list, company_name: str) -> list:
     for article in all_executive_news:
          url = article.get("url")
          if url and url not in exec_seen_urls:
-             article["related_person"] = person['name'] # Tag with the person's name
+             article["related_person"] = person['name']
              deduped_exec_news.append(article)
              exec_seen_urls.add(url)
 
-    print(f"AI Core: Found {len(deduped_exec_news)} unique articles related to executives.")
-    return deduped_exec_news[:10] # Limit total executive news analyzed
+    print(f"Found {len(deduped_exec_news)} unique articles related to executives.")
+    return deduped_exec_news[:10]
 
 
 # --- MAIN ANALYSIS FUNCTION ---
@@ -486,13 +507,12 @@ def get_combined_analysis(company_name: str) -> dict:
     print(f"AI Core: Total unique news items (Company + Exec) for analysis (max 50): {len(all_news_data)}")
 
     # --- Step 3: Analyze Data ---
-    esg_labels = [
-    "Environmental Impact (Climate, Emissions, Waste, Water, Biodiversity)", # Added keywords
-    "Social & Employee Issues (Labor, Safety, Diversity, Human Rights, Community)", # Added keywords
-    "Corporate Governance & Ethics (Board, Exec Pay, Shareholders, Ethics, Compliance)", # Added keywords
-    "General Business/Financial News"
+    esg_labels = [ # Simpler labels
+        "Environmental Impact",
+        "Social & Employee Issues",
+        "Corporate Governance & Ethics",
+        "General Business/Financial News" # Simple 'Other'
     ]
-    # hypothesis_template = "This news article discusses {}." # Removed template
     confidence_threshold = 0.35 # Lowered threshold
     executive_news_weight_factor = 0.8 # Weight executive news slightly less
 
@@ -506,16 +526,15 @@ def get_combined_analysis(company_name: str) -> dict:
                 sentiment_result = sentiment_analyzer(text)[0]
                 esg_result = esg_classifier(text, esg_labels) # Removed hypothesis_template
                 top_label = esg_result['labels'][0]; top_score = esg_result['scores'][0]
-
                 is_exec_news = "related_person" in item
 
                 if top_score < confidence_threshold:
-                    final_category = esg_labels[3] # "General Business..."
+                    final_category = esg_labels[3]
                     explanation = f"Low confidence ({top_score:.1%}). Defaulted to Other."
                 else:
                     final_category = top_label
                     prefix = f"Exec '{item.get('related_person','')}': " if is_exec_news else ""
-                    explanation = f"{prefix}Classified as '{final_category}' ({top_score:.1%})." # Use simple label
+                    explanation = f"{prefix}Classified as '{final_category}' ({top_score:.1%})."
 
                 base_trust = item.get('trust_score', 0.5)
                 final_trust = round(base_trust * executive_news_weight_factor, 2) if is_exec_news else base_trust
@@ -568,13 +587,14 @@ def get_combined_analysis(company_name: str) -> dict:
     all_analyzed_items = analyzed_news_feed + analyzed_reddit_feed
     if not all_analyzed_items:
         print("AI Core: No data available for scoring, defaulting scores to 50.")
-        default_score = 50 # Default score for demo
+        default_score = 50
         return {
             "company_name": company_name, "overall_score": default_score,
             "scores": {"environmental": default_score, "social": default_score, "governance": default_score},
             "modules": [{"module_name": "News Feed (Company & Executive)", "sentiment": "Neutral", "feed": []},
                         {"module_name": "Social (Reddit)", "sentiment": "Neutral", "feed": []}],
-            "suggestions": ["Not enough data for analysis or suggestions."]
+            "suggestions": ["Not enough data for analysis or suggestions."],
+            "risk_heatmap": {label: 0.0 for label in HEATMAP_LABELS} # Return empty heatmap
         }
 
     df = pd.DataFrame(all_analyzed_items)
@@ -582,8 +602,7 @@ def get_combined_analysis(company_name: str) -> dict:
     if 'trust_score' not in df.columns: df['trust_score'] = 0.5
     if 'category' not in df.columns: df['category'] = esg_labels[3]
 
-    # Adjusted Sentiment Map for Scoring (Boost neutral)
-    sentiment_map_scoring = {'positive': 1, 'neutral': 0.2, 'negative': -1}
+    sentiment_map_scoring = {'positive': 1, 'neutral': 0.2, 'negative': -1} # Boost neutral
     df['sentiment_num'] = df['sentiment'].map(sentiment_map_scoring).fillna(0)
     df['trust_score'] = df['trust_score'].fillna(0.5)
     df['weighted_sentiment'] = df['sentiment_num'] * df['trust_score']
@@ -605,6 +624,10 @@ def get_combined_analysis(company_name: str) -> dict:
         overall_score = max(calculated_overall_score, floor_score)
         if overall_score != calculated_overall_score:
              print(f"AI Core: Applied specific score floor of {floor_score} for {company_name}. Final score: {overall_score}")
+
+    # --- Call Sub-Topic Analysis for Heatmap ---
+    # We pass the dataframe and the simple labels used for classification
+    risk_heatmap_data = assign_sub_topic_and_risk(df.copy(), esg_labels)
 
     # Inner function to calculate category scores
     def calculate_category_score(category_name):
@@ -629,7 +652,7 @@ def get_combined_analysis(company_name: str) -> dict:
     gov_score = calculate_category_score(gov_label)
 
     # Generate risk summaries
-    suggestions = generate_risk_summary(df.copy()) # Pass df with sentiment_num
+    suggestions = generate_risk_summary(df.copy(), esg_labels) # Pass simple labels
 
 
     # Calculate overall sentiment label for module display
@@ -653,25 +676,93 @@ def get_combined_analysis(company_name: str) -> dict:
       "company_name": company_name,
       "overall_score": overall_score,
       "scores": {
-        "environmental": env_score, # Should always be a number
-        "social": soc_score,       # Should always be a number
-        "governance": gov_score      # Should always be a number
+        "environmental": env_score,
+        "social": soc_score,
+        "governance": gov_score
       },
       "modules": [
         {"module_name": "News Feed (Company & Executive)", "sentiment": news_sentiment, "feed": analyzed_news_feed},
         {"module_name": "Social (Reddit)", "sentiment": reddit_sentiment, "feed": analyzed_reddit_feed}
       ],
-       "suggestions": suggestions # Now contains risk summaries
+       "suggestions": suggestions, # Now contains risk summaries
+       "risk_heatmap": risk_heatmap_data # Contains heatmap data
     }
 
     print("AI Core: Analysis complete.")
     return final_data
 
 
+# --- Heatmap Sub-Topic Function ---
+def assign_sub_topic_and_risk(df: pd.DataFrame, esg_labels: list) -> dict:
+    """
+    Analyzes the dataframe to assign sub-topics and calculate risk scores
+    based on ALL items (activity) + extra weight for NEGATIVE items.
+    """
+    print("AI Core: Assigning sub-topics and calculating risk heatmap...")
+    # Map main categories to sub-topic keyword groups
+    if len(esg_labels) < 4:
+         print("Error: esg_labels list is too short for sub-topic mapping.")
+         return {label: 0.0 for label in HEATMAP_LABELS} # Return empty heatmap
+         
+    category_to_sub_topics = {
+        esg_labels[0]: ["Climate & Emissions", "Waste & Pollution", "Resources & Biodiversity"], # Environmental
+        esg_labels[1]: ["Labor & Safety", "Diversity & Inclusion", "Product & Data"], # Social
+        esg_labels[2]: ["Ethics & Compliance", "Board & Executive", "Transparency & Reporting"]  # Governance
+    }
+    
+    def find_sub_topic(row):
+        category = row['category']
+        text_lower = str(row['text']).lower()
+        
+        # Check if it belongs to a main category we're mapping
+        if category in category_to_sub_topics:
+            sub_topic_list = category_to_sub_topics[category]
+            # Check for specific keywords first
+            for sub_topic in sub_topic_list:
+                for keyword in SUB_TOPIC_KEYWORDS.get(sub_topic, []):
+                    if keyword in text_lower:
+                        return sub_topic # Return the first matching sub-topic
+            # If no keyword matches, return a default for that category
+            # Use the first sub-topic as a default for that category
+            return sub_topic_list[0] 
+        return "General Other"
+        
+    df['sub_topic'] = df.apply(find_sub_topic, axis=1)
+    
+    # --- MODIFICATION: Calculate Base Risk + Negative Risk ---
+    # Initialize final heatmap data with 0.0 for all labels
+    final_heatmap_data = {label: 0.0 for label in HEATMAP_LABELS}
+    
+    # 1. Base activity score: small score for ANY item matching a sub-topic
+    base_risk_factor = 0.2 # Increased base activity score
+    # Group by sub_topic and sum up the trust scores of ALL items
+    # Use fillna(0) in case sentiment_num is missing for some reason
+    df['sentiment_num'] = df['sentiment_num'].fillna(0) 
+    base_risk_map = (df.groupby('sub_topic')['trust_score'].sum() * base_risk_factor).to_dict()
+
+    # 2. Negative risk: larger score for NEGATIVE items
+    negative_items = df[df['sentiment_num'] == -1].copy()
+    if not negative_items.empty:
+        # Sum of trust scores for *negative* items. This is the *additional* risk.
+        # Use a higher factor for negative items
+        negative_risk_factor = 1.0 
+        negative_risk_map = (negative_items.groupby('sub_topic')['trust_score'].sum() * negative_risk_factor).to_dict()
+    else:
+        negative_risk_map = {} # Empty dict
+
+    # 3. Combine them: Iterate through all heatmap labels
+    for label in HEATMAP_LABELS:
+        base_score = base_risk_map.get(label, 0.0)
+        negative_score = negative_risk_map.get(label, 0.0)
+        final_heatmap_data[label] = round(base_score + negative_score, 1)
+    # --- END MODIFICATION ---
+         
+    print(f"AI Core: Risk heatmap data calculated: {final_heatmap_data}")
+    return final_heatmap_data
+
+
 # --- Add Risk Summary Function (Replaces Improvement Suggestions) ---
-# --- Update Risk Summary Function ---
-# --- Update Risk Summary Function ---
-def generate_risk_summary(analyzed_data_df: pd.DataFrame) -> list:
+def generate_risk_summary(analyzed_data_df: pd.DataFrame, esg_labels: list) -> list:
     """ Generates risk summaries for investors based on negative items, linking to frameworks. """
     risk_summaries = []
     if analyzed_data_df.empty or 'sentiment_num' not in analyzed_data_df.columns:
@@ -687,13 +778,14 @@ def generate_risk_summary(analyzed_data_df: pd.DataFrame) -> list:
          return risk_summaries
 
     # Use simple labels for grouping/checking
-    env_label = "Environmental Impact" # Assuming simpler labels are used now
-    soc_label = "Social & Employee Issues"
-    gov_label = "Corporate Governance & Ethics"
-    other_label = "General Business/Financial News"
+    if len(esg_labels) < 4: # Safety check
+         print("Error: esg_labels list too short for risk summary.")
+         return ["Error generating risk summary."]
+    env_label = esg_labels[0] # "Environmental Impact"
+    soc_label = esg_labels[1] # "Social & Employee Issues"
+    gov_label = esg_labels[2] # "Corporate Governance & Ethics"
+    other_label = esg_labels[3] # "General Business/Financial News"
 
-    # Calculate weighted risk per category
-    # Ensure trust_score column exists and has defaults
     negative_items['trust_score'] = negative_items['trust_score'].fillna(0.5)
     category_risk_weight = negative_items.groupby('category')['trust_score'].sum()
 
@@ -701,14 +793,14 @@ def generate_risk_summary(analyzed_data_df: pd.DataFrame) -> list:
          risk_summaries.append("Negative items found but could not be categorized. Review feeds manually.")
          return risk_summaries
 
-    # Sort by highest risk
     top_negative_categories = category_risk_weight.sort_values(ascending=False).head(3).index.tolist()
 
-    # Define thresholds for severity (adjust as needed)
-    high_risk_threshold = 3.0 # Example: Weighted sum >= 3.0
-    medium_risk_threshold = 1.0 # Example: Weighted sum >= 1.0
+    high_risk_threshold = 3.0
+    medium_risk_threshold = 1.0
 
     for category in top_negative_categories:
+        if category not in esg_labels: continue # Skip if category isn't one of our main ones
+        
         count = len(negative_items[negative_items['category'] == category])
         weight = category_risk_weight[category]
         try:
@@ -719,12 +811,12 @@ def generate_risk_summary(analyzed_data_df: pd.DataFrame) -> list:
              sample_negative_text = "[Could not retrieve sample text]"
              full_negative_text_lower = ""
 
-        # --- Refined Output Wording & Severity ---
         severity = "Low"
         if weight >= high_risk_threshold: severity = "High"
         elif weight >= medium_risk_threshold: severity = "Medium"
 
-        summary_line = f"**Risk Alert ({severity} Severity): {category.split(':')[0]}** - {count} negative item(s) detected (Weighted Impact: {weight:.1f}). "
+        category_simple_name = category # Use the simple label directly
+        summary_line = f"**Risk Alert ({severity} Severity): {category_simple_name}** - {count} negative item(s) detected (Weighted Impact: {weight:.1f}). "
         framework_mention = ""
         keywords_found = []
 
@@ -751,20 +843,19 @@ def generate_risk_summary(analyzed_data_df: pd.DataFrame) -> list:
 
         else: # Other category
              summary_line = f"**Observation (Other Topics):** {count} general news item(s) show negative sentiment (Weighted Impact: {weight:.1f}), e.g., '{sample_negative_text}...'. Assess potential non-ESG reputational impact."
-        # --- End Refined Output Wording ---
 
         risk_summaries.append(summary_line)
 
 
     if not risk_summaries:
-         # This case should ideally be caught earlier if negative_items is not empty but category_risk_weight is
-         risk_summaries.append("Negative sentiment detected but could not be categorized into specific risk areas. Manual review of feeds recommended.")
+         risk_summaries.append("Negative sentiment detected but not concentrated in specific ESG areas. Manual review of feeds recommended.")
 
-    # Add a concluding sentence if risks were found
-    if len(risk_summaries) > 0 and not risk_summaries[0].startswith("No significant"):
+    if len(risk_summaries) > 0 and not risk_summaries[0].startswith("No specific") and not risk_summaries[0].startswith("Analysis indicates"):
         risk_summaries.append("Recommendation: Further investigation into flagged areas is advised, comparing findings with official company disclosures.")
 
     return risk_summaries
+
+
 # --- Add Leaderboard Function (Example - Use with Caution) ---
 @st.cache_data(ttl=86400)
 def get_leaderboard(companies: list = None):
@@ -801,6 +892,4 @@ def get_leaderboard(companies: list = None):
     leaderboard_results.sort(key=sort_key, reverse=True)
     print("AI Core: Leaderboard generation complete.")
     return leaderboard_results
-
-# --- PDF Analyzer Function REMOVED ---
 

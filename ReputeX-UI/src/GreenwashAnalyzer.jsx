@@ -1,125 +1,170 @@
-// src/pages/GreenwashAnalyzer.jsx
-import React, { useRef, useState, useEffect } from "react";
-import styled, { ThemeProvider } from "styled-components"; // <-- Import ThemeProvider
-import { motion, AnimatePresence } from "framer-motion";
-// import { AuroraBackground } from "../components/aceternity/AuroraBackground"; // <-- REMOVED (File Missing)
-// import { CardSpotlight } from "../components/aceternity/CardSpotlight"; // <-- REMOVED (File Missing)
-import { FiFileText, FiCheckCircle, FiTrendingUp, FiShield, FiZap, FiUpload, FiLoader, FiXCircle } from "react-icons/fi";
-import { theme } from "../theme.js"; // <-- FIX: Added .js extension to the import path
+// src/pages/Dashboard.jsx
+import React, { useState } from 'react';
+import styled, { ThemeProvider } from 'styled-components';
+import { motion, AnimatePresence } from 'framer-motion';
+// Use FiAlertTriangle for risks, FiInfo for tooltips
+import { FiSearch, FiLoader, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiXCircle, FiInfo, FiAlertTriangle } from 'react-icons/fi';
+import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { theme } from '../theme.js'; // Assumes theme.js is at src/theme.js
 
-// --- STYLED COMPONENTS (Keep all from your original code) ---
-const PageWrapper = styled.div`
+// --- STYLED COMPONENTS ---
+// ... (All your styled components: DashboardPage, HeroSection, etc.) ...
+// ... (They are correct from the previous file) ...
+const DashboardPage = styled.div`
   background: ${props => props.theme.colors.darkBg};
   min-height: 100vh;
-  padding-top: 80px;
+  padding-top: 80px; /* Adjust if navbar height is different */
 `;
-
-// Hero Section styles
 const HeroSection = styled.section`
-  min-height: 90vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 4rem 5%;
   position: relative;
-  /* Simple fallback background since AuroraBackground is missing */
-  background: radial-gradient(circle, rgba(0, 255, 170, 0.1) 0%, #000 70%);
-`;
+  overflow: hidden;
 
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1200px;
+    height: 1200px;
+    background: radial-gradient(circle, rgba(0, 255, 170, 0.15) 0%, transparent 70%);
+    animation: pulse 8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+    50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.6; }
+  }
+`;
 const HeroContent = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   text-align: center;
   position: relative;
-  z-index: 10;
+  z-index: 2;
 `;
-
 const HeroTitle = styled(motion.h1)`
-  font-size: 5rem;
+  font-size: 4rem;
   font-weight: 700;
   margin-bottom: 1.5rem;
-  line-height: 1.1;
-  span {
-    background: linear-gradient(135deg, #00ffaa, #673ab7 90%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  @media (max-width: 768px) {
+  background: ${props => props.theme.colors.gradientPrimary};
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+
+  @media (max-width: ${props => props.theme.breakpoints.tablet}) {
     font-size: 3rem;
   }
-`;
 
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
+    font-size: 2.2rem;
+  }
+`;
 const HeroSubtitle = styled(motion.p)`
-  font-size: 1.4rem;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.3rem;
+  color: ${props => props.theme.colors.textSecondary};
+  line-height: 1.8;
   max-width: 800px;
   margin: 0 auto 3rem;
-  line-height: 1.8;
-  @media (max-width: 768px) {
+
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
     font-size: 1.1rem;
   }
 `;
+const SearchSection = styled(motion.div)`
+  max-width: 800px;
+  margin: 0 auto 4rem;
+  position: relative;
+  z-index: 3;
+`;
+const SearchContainer = styled.div`
+  position: relative;
+  background: rgba(0, 255, 170, 0.05);
+  border: 2px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 0.5rem;
+  transition: all 0.3s ease;
 
-const HeroButton = styled(motion.button)`
-  padding: 1.2rem 3rem;
-  background: linear-gradient(135deg, #00ffaa, #ab47bc 90%);
-  color: #000000;
+  &:focus-within {
+    border-color: ${props => props.theme.colors.primaryGreen};
+    box-shadow: 0 0 30px rgba(0, 255, 170, 0.3);
+    background: rgba(0, 255, 170, 0.1);
+  }
+`;
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 1.5rem 5rem 1.5rem 2rem;
+  background: transparent;
   border: none;
-  border-radius: 50px;
+  color: ${props => props.theme.colors.textPrimary};
+  font-size: 1.3rem;
+  outline: none;
+
+  &::placeholder {
+    color: ${props => props.theme.colors.textSecondary};
+  }
+
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
+    font-size: 1.1rem;
+    padding: 1.2rem 4rem 1.2rem 1.5rem;
+  }
+`;
+const SearchButton = styled(motion.button)`
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1rem 2rem;
+  background: ${props => props.theme.colors.gradientButton};
+  color: ${props => props.theme.colors.darkBg};
+  border: none;
+  border-radius: ${props => props.theme.borderRadius.sm};
   font-weight: 700;
   font-size: 1.1rem;
   cursor: pointer;
-  box-shadow: 0 10px 40px rgba(0, 255, 170, 0.3);
-  transition: 0.2s;
-  &:hover {
-    box-shadow: 0 15px 60px #00ffaa88;
-    background: linear-gradient(135deg, #00ffaa 60%, #ab47bc 100%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
   }
 `;
+const LoadingSpinner = styled(motion.div)`
+  animation: spin 1s linear infinite;
 
-// Features Section styles
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
 const FeaturesSection = styled.section`
-  padding: 5rem 5%;
-  background: linear-gradient(180deg, #000 0%, #001a14 100%);
+  padding: 4rem 5%;
+  background: ${props => props.theme.colors.darkBgSecondary};
 `;
-
-const SectionTitle = styled(motion.h2)`
-  font-size: 3.2rem;
-  text-align: center;
-  margin-bottom: 1rem;
-  span {
-    background: linear-gradient(135deg, #00ffaa, #673ab7 70%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-`;
-
-const SectionSubtitle = styled.p`
-  text-align: center;
-  font-size: 1.18rem;
-  color: rgba(255, 255, 255, 0.6);
-  max-width: 700px;
-  margin: 0 auto 4rem;
-`;
-
 const FeaturesGrid = styled.div`
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 2.4rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2.5rem;
 `;
-
-// --- Standard FeatureCard as a fallback for CardSpotlight ---
 const FeatureCard = styled(motion.div)`
   background: rgba(0, 255, 170, 0.03);
-  /* Use theme if available, else fallback */
-  border: 1px solid ${props => props.theme.colors ? props.theme.colors.border : 'rgba(255, 255, 255, 0.1)'};
-  border-radius: ${props => props.theme.borderRadius ? props.theme.borderRadius.lg : '12px'};
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.lg};
   padding: 2.5rem;
   text-align: center;
   transition: all 0.4s ease;
-  $color: ${props => props.$color || '#00ffaa'};
 
   &:hover {
     transform: translateY(-10px);
@@ -128,759 +173,739 @@ const FeatureCard = styled(motion.div)`
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px ${props => props.$color}40;
   }
 `;
-
-
 const FeatureIcon = styled.div`
-  width: 70px;
-  height: 70px;
-  background: ${(p) => p.$color}22;
-  border: 2.5px solid ${(p) => p.$color};
-  border-radius: 16px;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  background: ${props => props.$color}15;
+  border: 3px solid ${props => props.$color};
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.4rem;
-  color: ${(p) => p.$color};
-  margin-bottom: 1.3rem;
-`;
+  font-size: 2.5rem;
+  color: ${props => props.$color};
+  transition: all 0.3s ease;
 
+  ${FeatureCard}:hover & {
+    transform: scale(1.2) rotate(360deg);
+    box-shadow: 0 0 40px ${props => props.$color}80;
+  }
+`;
 const FeatureTitle = styled.h3`
-  font-size: 1.32rem;
+  font-size: 1.5rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: ${props => props.theme.colors.textPrimary};
 `;
-
 const FeatureDescription = styled.p`
   font-size: 1rem;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.76);
+  color: ${props => props.theme.colors.textSecondary};
 `;
-
-// Sticky Scroll Section styles
-const StickyWrapper = styled.div`
+const ResultsSection = styled(motion.section)`
+  padding: 4rem 5%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 6rem 5%;
 `;
-
-const StickyContent = styled.div`
-  display: flex;
-  gap: 4rem;
-  @media (max-width: 992px) {
-    flex-direction: column;
-  }
-`;
-
-const Sidebar = styled.div`
-  position: sticky;
-  top: 120px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
-  padding: 2rem;
-  width: 320px;
-  max-height: 370px;
-  background: #000;
-  box-shadow: 0 10px 30px rgba(0, 255, 170, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 1.6rem;
-  @media (max-width: 992px) {
-    position: relative;
-    top: 0; /* Unset sticky */
-    width: 100%;
-    max-height: none; /* Unset max-height */
-  }
-`;
-
-const Step = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1.2rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: ${(p) => (p.active ? "rgba(0, 255, 170, 0.15)" : "transparent")};
-  border-left: 4px solid
-    ${(p) => (p.active ? "#00ffaa" : "transparent")};
-  color: ${(p) => (p.active ? "#00ffaa" : "rgba(255,255,255,0.8)")};
-
-  &:hover {
-    background: rgba(0, 255, 170, 0.1);
-  }
-
-  @media (max-width: 992px) {
-    justify-content: center;
-    padding: 12px 0;
-  }
-`;
-
-const StepNum = styled.div`
-  min-width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: ${(p) =>
-    p.active
-      ? "linear-gradient(135deg, #00ffaa, #ab47bc)"
-      : "rgba(255,255,255,0.08)"};
-  border: 1.5px solid
-    ${(p) => (p.active ? "#00ffaa" : "rgba(255,255,255,0.15)")};
-  color: #fff;
-  font-weight: 700;
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: ${(p) =>
-    p.active ? "0 0 12px #00ffaa90, 0 0 36px #ab47bc55" : "none"};
-`;
-
-const StepText = styled.div`
-  font-weight: 600;
-  font-size: 1.05rem;
-`;
-
-const ContentCards = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3rem;
-  color: #fff;
-  @media (max-width: 992px) {
-    padding-top: 3rem;
-  }
-`;
-
-const Card = styled(motion.div)`
-  background: rgba(0, 255, 170, 0.03);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 255, 170, 0.2);
-  border-radius: 20px;
-  padding: 2.5rem;
-  min-height: 320px;
-  scroll-margin-top: 140px; /* offset sticky header */
-`;
-
-
-const CardTitle = styled.h3`
-  font-weight: 700;
-  font-size: 1.7rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #00ffaa, #673ab7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-`;
-
-const CardDescription = styled.p`
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
-`;
-
-// Call to Action Section Styling
-const CTASection = styled.section`
-  margin-top: 8rem;
-  background: linear-gradient(135deg, #004d40, #00ffaa99);
-  padding: 5rem 2rem;
-  border-radius: 28px;
+const ResultsHeader = styled.div`
   text-align: center;
-  color: #000;
-  box-shadow: 0 0 30px #00ffaa55;
-`;
+  margin-bottom: 3rem;
 
-const CTAHeader = styled(motion.h2)`
-  font-size: 3rem;
-  font-weight: 900;
-
-  background: linear-gradient(135deg, #00ffaa, #673ab7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-
-  margin-bottom: 1rem;
-`;
-
-const CTASubtext = styled(motion.p)`
-  font-size: 1.3rem;
-  max-width: 620px;
-  margin: 0 auto 3rem;
-  font-weight: 600;
-`;
-
-const CTAButton = styled(motion.button)`
-  background-color: #00ffaa;
-  background-image: linear-gradient(135deg, #00ffaa, #ab47bc);
-  box-shadow: 0 0 16px #00ffaa, 0 0 36px #ab47bc;
-  border-radius: 60px;
-  padding: 1.2rem 3rem;
-  font-weight: 900;
-  font-size: 1.25rem;
-  border: none;
-  color: #000;
-  cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-
-  &:hover {
-    transform: scale(1.04);
-    box-shadow: 0 0 40px #00ffaa, 0 0 60px #ab47bc;
+  h2 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    background: ${props => props.theme.colors.gradientPrimary};
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-`;
 
-// --- NEW STYLED COMPONENTS FOR UPLOADER & RESULTS ---
-const UploaderForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-`;
-
-const FormInput = styled.input`
-  width: 100%;
-  padding: 0.8rem 1.2rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(0, 255, 170, 0.3);
-  border-radius: ${props => props.theme.borderRadius.sm};
-  color: ${props => props.theme.colors.textPrimary};
-  font-size: 1rem;
-  outline: none;
-  transition: all 0.3s ease;
-
-  &:focus {
-    border-color: ${props => props.theme.colors.primaryGreen};
-    box-shadow: 0 0 15px rgba(0, 255, 170, 0.3);
-  }
-`;
-
-const FileInputLabel = styled.label`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  width: 100%;
-  padding: 0.8rem 1.2rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px dashed ${props => props.theme.colors.border};
-  border-radius: ${props => props.theme.borderRadius.sm};
-  color: ${props => props.theme.colors.textSecondary};
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-
-  &:hover {
-    border-color: ${props => props.theme.colors.primaryGreen};
-    color: ${props => props.theme.colors.primaryGreen};
-  }
-`;
-
-const HiddenFileInput = styled.input`
-  display: none;
-`;
-
-const AnalyzeButton = styled(motion.button)`
-  padding: 0.8rem 1.5rem;
-  background: ${props => props.theme.colors.gradientButton};
-  color: ${props => props.theme.colors.darkBg};
-  border: none;
-  border-radius: ${props => props.theme.borderRadius.sm};
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-`;
-
-const ResultsContainer = styled(motion.div)`
-  margin-top: 2rem;
-  background: rgba(0, 255, 170, 0.05);
-  border-radius: ${props => props.theme.borderRadius.lg};
-  border: 1px solid ${props => props.theme.colors.border};
-  padding: 2rem;
-`;
-
-const ResultsTitle = styled.h4`
-  font-size: 1.5rem;
-  color: ${props => props.theme.colors.textPrimary};
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid ${props => props.theme.colors.border};
-  padding-bottom: 1rem;
-`;
-
-const ResultStatus = styled.p`
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: ${props => (props.status === 'Consistent' ? props.theme.colors.primaryGreen : '#ff6b6b')};
-  margin-bottom: 1rem;
-`;
-
-const ResultScore = styled.p`
-    font-size: 1.1rem;
+  p {
+    font-size: 1.2rem;
     color: ${props => props.theme.colors.textSecondary};
-    margin-bottom: 1.5rem;
-    span {
-        font-weight: 700;
-        font-size: 1.3rem;
-        color: ${props => (props.score >= 50 ? props.theme.colors.primaryGreen : '#ffc107')};
-    }
+  }
 `;
-
-const ResultList = styled.ul`
-  list-style: none;
-  padding-left: 0;
+const ScoreOverview = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2.5rem;
+  margin-bottom: 4rem;
 `;
+const ScoreCard = styled(motion.div)`
+  background: rgba(0, 255, 170, 0.03);
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 2.5rem;
+  text-align: center;
+  transition: all 0.4s ease;
+  position: relative; /* Added for tooltip positioning */
 
-const ResultItem = styled(motion.li)`
-  font-size: 1rem;
-  color: ${props => props.theme.colors.textSecondary};
-  padding: 1rem;
-  border-bottom: 1px solid ${props => props.theme.colors.borderFaint};
-  line-height: 1.6;
-
-  &:last-child {
-    border-bottom: none;
+  &:hover {
+    transform: translateY(-10px);
+    border-color: ${props => props.$color};
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px ${props => props.$color}40;
   }
 `;
 
+// Tooltip styles
+const TooltipIcon = styled(FiInfo)`
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+  color: ${props => props.theme.colors.textSecondary};
+  cursor: help;
+
+  &:hover + span {
+    visibility: visible;
+    opacity: 1;
+  }
+`;
+
+const TooltipText = styled.span`
+  visibility: hidden;
+  width: 250px;
+  background-color: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: ${props => props.theme.borderRadius.sm};
+  padding: 10px;
+  position: absolute;
+  z-index: 10;
+  bottom: 125%; /* Position above the icon */
+  left: 50%;
+  margin-left: -125px; /* Center the tooltip */
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.9rem;
+  line-height: 1.4;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+  }
+`;
+
+
+const ScoreCircle = styled.div`
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 1.5rem;
+`;
+const ScoreLabel = styled.h3`
+  font-size: 1.3rem;
+  color: ${props => props.theme.colors.textPrimary};
+  margin-bottom: 0.5rem;
+`;
+const ScoreValue = styled.div`
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: ${props => props.$color};
+`;
+const ChartsSection = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
+
+  @media (max-width: ${props => props.theme.breakpoints.tablet}) {
+    grid-template-columns: 1fr;
+  }
+`;
+const ChartCard = styled(motion.div)`
+  background: rgba(0, 255, 170, 0.03);
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 2.5rem;
+
+  h3 {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    color: ${props => props.theme.colors.textPrimary};
+  }
+`;
 const ErrorMessage = styled(motion.div)`
-  margin-top: 1.5rem;
-  padding: 1rem;
+  max-width: 600px;
+  margin: 3rem auto;
+  padding: 2rem;
   background: rgba(255, 107, 107, 0.1);
   border: 1px solid #ff6b6b;
-  border-radius: ${props => props.theme.borderRadius.sm};
-  color: #ff6b6b;
+  border-radius: ${props => props.theme.borderRadius.lg};
   text-align: center;
+
+  svg {
+    font-size: 3rem;
+    color: #ff6b6b;
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.5rem;
+    color: ${props => props.theme.colors.textPrimary};
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: ${props => props.theme.colors.textSecondary};
+  }
 `;
-// --- END NEW STYLED COMPONENTS ---
+const FeedsSection = styled.div`
+  margin-top: 4rem;
+  margin-bottom: 4rem; /* Added margin */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  @media (max-width: ${props => props.theme.breakpoints.tablet}) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ModuleCard = styled(motion.div)`
+  background: rgba(0, 255, 170, 0.03);
+  border: 1px solid ${props => props.theme.colors.border};
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 1.5rem 2rem;
+  max-height: 600px;
+  overflow-y: auto;
+
+  /* Custom scrollbar */
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: ${props => props.theme.colors.border}; border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: ${props => props.theme.colors.primaryGreen}80; }
+
+  h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: ${props => props.theme.colors.textPrimary};
+    border-bottom: 1px solid ${props => props.theme.colors.border};
+    padding-bottom: 0.8rem;
+    position: sticky;
+    top: -1.5rem;
+    background: rgba(17, 17, 17, 0.95); /* Adjust background for sticky header */
+    padding-top: 1.5rem;
+    z-index: 5;
+  }
+`;
+
+const FeedItem = styled.div`
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid ${props => props.theme.colors.borderFaint};
+
+  &:last-child { border-bottom: none; margin-bottom: 0; }
+
+  p { color: ${props => props.theme.colors.textSecondary}; margin-bottom: 0.5rem; line-height: 1.6; }
+  p strong { color: ${props => props.theme.colors.textPrimary}; }
+  small { color: ${props => props.theme.colors.textMuted}; font-size: 0.9em; }
+  i { color: #aaa; } /* Explanation style */
+  a { color: ${props => props.theme.colors.primaryGreen}; text-decoration: none; font-weight: 600; font-size: 0.9em; word-break: break-all; &:hover { text-decoration: underline; } }
+`;
+
+const RiskAreaSection = styled(motion.div)`
+  margin-top: 4rem;
+  background: rgba(255, 170, 0, 0.05); /* Orange hint for risk */
+  border: 1px solid ${props => props.theme.colors.border};
+  border-left: 5px solid #ffc107; /* Orange accent */
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 2.5rem;
+
+  h3 {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    color: ${props => props.theme.colors.textPrimary};
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    svg { color: #ffc107; flex-shrink: 0; } /* Orange icon */
+  }
+
+  ul { list-style: none; padding-left: 0; }
+  li {
+    color: ${props => props.theme.colors.textSecondary};
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+    position: relative;
+    &:last-child { margin-bottom: 0; }
+    &::before {
+       content: '⚠️'; /* Warning emoji */
+       display: inline-block;
+       position: absolute;
+       left: 0;
+       top: 2px;
+       font-size: 1rem;
+    }
+  }
+`;
+
+// --- NEW STYLED COMPONENTS FOR HEATMAP ---
+const HeatmapGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const HeatmapCell = styled(motion.div)`
+  background: ${props => props.$riskColor}20; /* Use risk color with low opacity */
+  border: 1px solid ${props => props.$riskColor}80; /* Border with medium opacity */
+  border-radius: ${props => props.theme.borderRadius.md}; /* Use theme border radius */
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 30px ${props => props.$riskColor}30;
+  }
+`;
+
+const HeatmapLabel = styled.p`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: ${props => props.theme.colors.textSecondary};
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const HeatmapValue = styled.p`
+  font-size: 2rem;
+  font-weight: 700;
+  color: ${props => props.$riskColor};
+  margin: 0;
+`;
+
+const HeatmapHeader = styled.h4`
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: ${props => props.theme.colors.textPrimary};
+    margin: 0 0 1rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.5;
+    text-align: left; /* Align section headers */
+    padding-top: 1rem; /* Add space between sections */
+`;
+// --- END STYLED COMPONENTS ---
 
 
-// --- Main Component Wrapper ---
-// Wrap the page in ThemeProvider to ensure styled-components have access to theme props
-const GreenwashDetectionPage = () => {
+const features = [
+  { icon: <FiSearch />, title: 'Real-Time Data', description: 'Fetches latest news & Reddit discussions.', color: '#00ff88' },
+  { icon: <FiTrendingUp />, title: 'AI Classification', description: 'Classifies content into E, S, G categories.', color: '#00ddbb' },
+  { icon: <FiAlertCircle />, title: 'Sentiment Analysis', description: 'Analyzes public sentiment for scores.', color: '#00bb99' },
+  { icon: <FiCheckCircle />, title: 'Overall Scoring', description: 'Generates overall ESG reputation score.', color: '#00ffaa' }
+];
+
+// --- === MAIN COMPONENT WRAPPER === ---
+const DashboardPageWrapper = () => {
+  // Wrap the Dashboard component in ThemeProvider
+  // This ensures all styled-components within Dashboard can access props.theme
   return (
     <ThemeProvider theme={theme}>
-      <GreenwashAnalyzer />
+      <Dashboard />
     </ThemeProvider>
   )
 }
 
-
-const GreenwashAnalyzer = () => { // Renamed from GreenwashDetectionPage
-  const [activeStep, setActiveStep] = useState(0);
-  const cardsRef = useRef([]);
-
-  // --- NEW STATE FOR FUNCTIONALITY ---
-  const [companyName, setCompanyName] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [fileName, setFileName] = useState("Click to select a PDF file");
+// --- === MAIN COMPONENT === ---
+const Dashboard = () => {
+  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
-  // --- END NEW STATE ---
 
-
-  const steps = [
-    "Upload Report",
-    "NLP Analysis",
-    "Compare With Public Data",
-    "Flag Greenwashing",
-  ];
-  
-  // --- MODIFIED CARD DETAILS ---
-  const cardDetails = [
-    {
-      title: "Upload Report",
-      description: "Upload your company’s Sustainability or ESG Report in PDF to start analysis. We also need the company's common name for cross-referencing.",
-    },
-    {
-      title: "NLP Analysis",
-      description: "Our NLP engine identifies vague claims ('weasel words') vs. concrete claims and extracts key ESG topics mentioned in the report.",
-    },
-    {
-      title: "Compare With Public Data",
-      description: "We cross-reference the report's topics with real-time public sentiment from Reddit, searching for what people *really* think.",
-    },
-    {
-      title: "Flag Greenwashing",
-      description: "Discrepancies are flagged as risks. E.g., if the report boasts about 'labor practices' but public sentiment on Reddit is highly negative, we flag it.",
-    },
-  ];
-  // --- END MODIFIED CARD DETAILS ---
-
-  // --- NEW FILE HANDLER FUNCTIONS ---
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type === "application/pdf") {
-      setSelectedFile(file);
-      setFileName(file.name);
-      setError(null);
-    } else {
-      setSelectedFile(null);
-      setFileName("Please select a PDF file");
-      setError("Invalid file type. Please upload a PDF.");
-    }
-  };
-
-  const handleSubmitAnalysis = async (e) => {
+  // --- handleSearch function (Updated for correct URL) ---
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (!companyName || !selectedFile) {
-      setError("Please provide a company name and select a PDF file.");
-      return;
-    }
-
-    setLoading(true);
-    setResults(null);
-    setError(null);
-
-    const formData = new FormData();
-    formData.append("company_name", companyName);
-    formData.append("file", selectedFile);
-
-    // Call your FastAPI backend endpoint
-    const apiUrl = "http://localhost:8000/api/analyze-greenwash";
-
+    if (!companyName.trim()) { setError('Please enter a company name'); setResults(null); return; }
+    setLoading(true); setError(null); setResults(null);
+    
+    // --- FIX: Ensure this URL matches your running Python server (port 8000) ---
+    const apiUrl = `http://localhost:8000/api/analyze?company=${encodeURIComponent(companyName)}`;
+    
     try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData,
-      });
-
+      console.log(`Fetching: ${apiUrl}`);
+      const response = await fetch(apiUrl, { method: 'GET', headers: { 'Accept': 'application/json' } });
+      console.log(`Response Status: ${response.status}`);
       if (!response.ok) {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try { const errorData = await response.json(); errorMsg = errorData.message || errorData.detail || errorMsg; }
         catch (jsonError) { errorMsg = response.statusText || errorMsg; }
         throw new Error(errorMsg);
       }
-
-      const data = await response.json();
-      console.log("Analysis results:", data);
-      
-      if (data.status === "Error") {
-        throw new Error(data.report || "Analysis failed on the backend.");
-      }
-
-      setResults(data); // Set the full result object
-
+      const data = await response.json(); console.log("Data received:", data);
+      if (data.error) { throw new Error(data.message || data.error); }
+      setResults(data);
     } catch (err) {
-      console.error("Error submitting analysis:", err);
-      setError(err.message || "An error occurred. Is the backend server running?");
-    } finally {
-      setLoading(false);
-    }
+      console.error("Error fetching analysis:", err);
+      setError(err.message || 'Failed to fetch ESG data. Is the backend server running?');
+    } finally { setLoading(false); }
   };
-  // --- END NEW FILE HANDLER FUNCTIONS ---
+  // --- END handleSearch function ---
 
 
-  // --- Scroll Logic (Keep as is) ---
-  useEffect(() => {
-    const onScroll = () => {
-      if (!cardsRef.current) return;
-      const scrollMiddle = window.innerHeight / 2;
-      let newActiveStep = activeStep;
-      for (let i = 0; i < cardsRef.current.length; i++) {
-        const el = cardsRef.current[i];
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          if (rect.top <= scrollMiddle && rect.bottom >= scrollMiddle) {
-            newActiveStep = i; break;
-          }
-        }
-      }
-      if (newActiveStep !== activeStep) {
-        setActiveStep(newActiveStep);
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll(); // Initial check
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [activeStep]);
-
-  const scrollToCard = (idx) => {
-      const cardEl = cardsRef.current[idx];
-      if (cardEl) {
-           const top = cardEl.getBoundingClientRect().top + window.pageYOffset - 110;
-           window.scrollTo({ top, behavior: "smooth" });
-      }
+  // --- Helper functions (Using 50 for N/A for bars, 0 for charts) ---
+  const getScoreValue = (score) => {
+    // Return 50 if "N/A" for visual consistency in progress bars
+    return (score === "N/A" || score === null || score === undefined) ? 50 : Number(score);
   };
-  // --- End Scroll Logic ---
+  const getScoreColor = (scoreValue) => {
+    // Use the ORIGINAL score value ("N/A" or number) for color logic
+    if (scoreValue === "N/A") return 'grey'; // Specific color for N/A display
+    const numericScore = Number(scoreValue);
+    if (numericScore >= 75) return '#00ff88'; // Bright Green
+    if (numericScore >= 50) return '#00ddbb'; // Teal
+    if (numericScore >= 25) return '#ffc107'; // Yellow/Orange
+    return '#ff6b6b'; // Red
+  };
+   const getChartScoreValue = (score) => {
+     // Return 0 if N/A for chart calculations
+     return (score === "N/A" || score === null || score === undefined) ? 0 : Number(score);
+   };
+  // --- End helper functions ---
 
-  const features = [
-    {
-      icon: <FiFileText />,
-      title: "Automated PDF Parsing",
-      description:
-        "Extracts key info and claims from sustainability reports fast and accurately.",
-      color: "#00ffaa",
-    },
-    {
-      icon: <FiShield />,
-      title: "Trustworthy Verification",
-      description:
-        "Combines NLP findings with trusted news and public data for reliable scoring.",
-      color: "#673ab7",
-    },
-    {
-      icon: <FiZap />,
-      title: "Real-Time Monitoring",
-      description:
-        "Continuous checks for emerging greenwashing risks supported by live media feeds.",
-      color: "#00ffaa",
-    },
-    {
-      icon: <FiTrendingUp />,
-      title: "Actionable Insights",
-      description:
-        "Clear flags and recommendations encourage transparency and leadership in sustainability.",
-      color: "#673ab7",
-    },
-  ];
+
+  // --- Data preparation for charts ---
+  const overallScoreValueForChart = results ? getChartScoreValue(results.overall_score) : 0;
+  const envScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.environmental) : 0;
+  const socScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.social) : 0;
+  const govScoreValueForChart = results?.scores ? getChartScoreValue(results.scores.governance) : 0;
+
+  const radarData = results ? [
+    { subject: 'Environmental', score: envScoreValueForChart, fullMark: 100 },
+    { subject: 'Social', score: socScoreValueForChart, fullMark: 100 },
+    { subject: 'Governance', score: govScoreValueForChart, fullMark: 100 }
+  ] : [];
+  const barData = results ? [
+    { name: 'Env.', score: envScoreValueForChart },
+    { name: 'Soc.', score: socScoreValueForChart },
+    { name: 'Gov.', score: govScoreValueForChart }
+  ] : [];
+  // --- End data preparation ---
+
+  // --- NEW: Helper function and data for Heatmap ---
+  const getRiskColor = (score) => {
+    if (!score || score < 1.0) return '#00ddbb'; // Low risk (Teal)
+    if (score < 3.0) return '#ffc107'; // Medium risk (Yellow)
+    return '#ff6b6b'; // High risk (Red)
+  };
+  
+  const heatmapCategories = {
+    Environmental: ["Climate & Emissions", "Waste & Pollution", "Resources & Biodiversity"],
+    Social: ["Labor & Safety", "Diversity & Inclusion", "Product & Data"],
+    Governance: ["Ethics & Compliance", "Board & Executive", "Transparency & Reporting"]
+  };
+  // --- END NEW Heatmap helpers ---
+
 
   return (
-    <PageWrapper>
-      {/* Use HeroSection as fallback for AuroraBackground */}
+    <DashboardPage>
+      {/* Hero Section */}
       <HeroSection>
         <HeroContent>
-          <HeroTitle
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            Enhanced <span>Greenwash Detection</span>
-          </HeroTitle>
-          <HeroSubtitle
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            Reveal gaps between what companies claim and what public data shows.
-            <br />
-            Upload reports, get AI-powered verification and transparent flags.
-          </HeroSubtitle>
-          <HeroButton
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => scrollToCard(0)} // Scroll to first card on click
-          >
-            Try Greenwash Detection
-          </HeroButton>
+           <HeroTitle initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+             ReputeX ESG Tracker
+           </HeroTitle>
+           <HeroSubtitle initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}>
+             Analyze any company's Environmental, Social, and Governance performance
+             in real-time using AI-powered analysis from news and social media.
+           </HeroSubtitle>
+          <SearchSection initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.8 }} >
+            <form onSubmit={handleSearch}>
+               <SearchContainer>
+                 <SearchInput
+                   type="text"
+                   placeholder="Enter company name (e.g., Tesla, Apple, Tata)..."
+                   value={companyName}
+                   onChange={(e) => setCompanyName(e.target.value)}
+                   disabled={loading}
+                 />
+                 <SearchButton type="submit" disabled={loading} whileHover={{ scale: loading ? 1 : 1.05 }} whileTap={{ scale: loading ? 1 : 0.95 }}>
+                   {loading ? ( <><LoadingSpinner><FiLoader /></LoadingSpinner>Analyzing...</> ) : ( <><FiSearch />Analyze</> )}
+                 </SearchButton>
+               </SearchContainer>
+            </form>
+          </SearchSection>
         </HeroContent>
       </HeroSection>
 
-      <FeaturesSection>
-        <SectionTitle
-          initial={{ opacity: 0, y: 28 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7 }}
-        >
-          Why Choose <span>Our Solution?</span>
-        </SectionTitle>
-        <SectionSubtitle>
-          A trusted tool to identify and flag misleading sustainability claims.
-        </SectionSubtitle>
-        <FeaturesGrid>
-          {features.map((feature, idx) => (
-            // Use FeatureCard as fallback for CardSpotlight
-            <FeatureCard 
-              key={idx} 
-              $color={feature.color}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              theme={theme} // Pass theme to FeatureCard
-            >
-              <FeatureIcon $color={feature.color}>
-                {feature.icon}
-              </FeatureIcon>
-              <FeatureTitle>{feature.title}</FeatureTitle>
-              <FeatureDescription>{feature.description}</FeatureDescription>
-            </FeatureCard>
-          ))}
-        </FeaturesGrid>
-      </FeaturesSection>
+      {/* Features Section (Keep as is) */}
+      {!results && !loading && !error && (
+         <FeaturesSection>
+             <FeaturesGrid>
+                 {features.map((feature, index) => (
+                     <FeatureCard
+                       key={index} $color={feature.color}
+                       initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
+                       viewport={{ once: true }} transition={{ delay: index * 0.1, duration: 0.6 }}
+                     >
+                       <FeatureIcon $color={feature.color}>{feature.icon}</FeatureIcon>
+                       <FeatureTitle>{feature.title}</FeatureTitle>
+                       <FeatureDescription>{feature.description}</FeatureDescription>
+                     </FeatureCard>
+                 ))}
+             </FeaturesGrid>
+         </FeaturesSection>
+      )}
 
-      <StickyWrapper>
-        <StickyContent>
-          <Sidebar>
-            {steps.map((step, idx) => (
-              <Step
-                key={idx}
-                active={idx === activeStep}
-                onClick={() => scrollToCard(idx)}
-                tabIndex={0}
-              >
-                <StepNum active={idx === activeStep}>{idx + 1}</StepNum>
-                <StepText active={idx === activeStep}>{step}</StepText>
-              </Step>
-            ))}
-          </Sidebar>
+      {/* Error Message (Keep as is) */}
+      <AnimatePresence>
+        {error && (
+            <ErrorMessage initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                <FiXCircle />
+                <h3>Error Analyzing Company</h3>
+                <p>{error}</p>
+            </ErrorMessage>
+        )}
+      </AnimatePresence>
 
-          <ContentCards>
-            {/* --- MODIFIED Card 1 (Uploader) --- */}
-            <Card
-              key={0}
-              ref={(el) => (cardsRef.current[0] = el)}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-            >
-              <CardTitle>
-                Step 1: <span>{cardDetails[0].title}</span>
-              </CardTitle>
-              <CardDescription>{cardDetails[0].description}</CardDescription>
-              
-              {/* --- ADDED UPLOADER FORM --- */}
-              <UploaderForm onSubmit={handleSubmitAnalysis}>
-                <FormInput
-                  type="text"
-                  placeholder="Enter Company Name (e.g., Tesla, Apple)"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  disabled={loading}
-                  theme={theme} // Pass theme
-                />
-                <HiddenFileInput
-                  type="file"
-                  id="pdf-upload"
-                  accept="application/pdf"
-                  onChange={handleFileChange}
-                  disabled={loading}
-                />
-                <FileInputLabel 
-                  htmlFor="pdf-upload"
-                  theme={theme} // Pass theme
-                >
-                  <FiUpload />
-                  {fileName}
-                </FileInputLabel>
-                
-                <AnalyzeButton 
-                  type="submit" 
-                  disabled={loading}
-                  theme={theme} // Pass theme
-                >
-                  {loading ? (
-                    <><LoadingSpinner as="span"><FiLoader /></LoadingSpinner> Analyzing Report...</>
-                  ) : (
-                    "Analyze Now"
-                  )}
-                </AnalyzeButton>
-              </UploaderForm>
+      {/* Results Section */}
+      <AnimatePresence>
+        {results && !error && (
+          <ResultsSection initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} transition={{ duration: 0.8 }}>
+            <ResultsHeader>
+              <h2>ESG Analysis: {results.company_name}</h2>
+              <p>Analysis based on data fetched on {new Date().toLocaleDateString()}</p>
+            </ResultsHeader>
 
-              {/* Display Errors Here */}
-              <AnimatePresence>
-                {error && (
-                    <ErrorMessage
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        style={{ margin: "1.5rem 0 0 0" }} // Reset margins
-                        theme={theme} // Pass theme
+            {/* Score Overview */}
+            <ScoreOverview>
+              {/* Overall Score Card */}
+              <ScoreCard $color={getScoreColor(results.overall_score)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1, duration: 0.5 }}>
+                  <ScoreCircle>
+                    <CircularProgressbar
+                      value={getScoreValue(results.overall_score)}
+                      text={`${results.overall_score}`}
+                      styles={buildStyles({
+                          textColor: getScoreColor(results.overall_score),
+                          pathColor: getScoreColor(results.overall_score),
+                          trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px'
+                      })}
+                    />
+                  </ScoreCircle>
+                  <ScoreLabel>Overall Score</ScoreLabel>
+                  <ScoreValue $color={getScoreColor(results.overall_score)}>
+                    {results.overall_score}{typeof results.overall_score === 'number' ? '/100' : ''}
+                  </ScoreValue>
+              </ScoreCard>
+
+              {/* Environmental Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.environmental)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.5 }}>
+                  <TooltipIcon />
+                  <TooltipText>Environmental factors: Climate impact, resource use, pollution, sustainability efforts. (Relates to GRI 300 series / SASB industry specifics)</TooltipText>
+                  <ScoreCircle>
+                   <CircularProgressbar
+                     value={getScoreValue(results.scores?.environmental)}
+                     text={`${results.scores?.environmental ?? 'N/A'}`}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.environmental), pathColor: getScoreColor(results.scores?.environmental), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                   />
+                </ScoreCircle>
+                <ScoreLabel>Environmental</ScoreLabel>
+                <ScoreValue $color={getScoreColor(results.scores?.environmental)}>
+                  {results.scores?.environmental ?? 'N/A'}{typeof results.scores?.environmental === 'number' ? '/100' : ''}
+                </ScoreValue>
+              </ScoreCard>
+
+              {/* Social Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.social)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, duration: 0.5 }}>
+                   <TooltipIcon />
+                   <TooltipText>Social factors: Employee relations, diversity, human rights, community impact, product safety. (Relates to GRI 400 series / SASB human capital)</TooltipText>
+                   <ScoreCircle>
+                   <CircularProgressbar
+                     value={getScoreValue(results.scores?.social)}
+                     text={`${results.scores?.social ?? 'N/A'}`}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.social), pathColor: getScoreColor(results.scores?.social), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                   />
+                 </ScoreCircle>
+                <ScoreLabel>Social</ScoreLabel>
+                <ScoreValue $color={getScoreColor(results.scores?.social)}>
+                  {results.scores?.social ?? 'N/A'}{typeof results.scores?.social === 'number' ? '/100' : ''}
+                </ScoreValue>
+              </ScoreCard>
+
+              {/* Governance Score Card */}
+              <ScoreCard $color={getScoreColor(results.scores?.governance)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, duration: 0.5 }}>
+                   <TooltipIcon />
+                   <TooltipText>Governance factors: Leadership ethics, board structure, executive pay, shareholder rights, transparency. (Relates to GRI 200 series / SASB governance metrics)</TooltipText>
+                   <ScoreCircle>
+                   <CircularProgressbar
+                     value={getScoreValue(results.scores?.governance)}
+                     text={`${results.scores?.governance ?? 'N/A'}`}
+                     styles={buildStyles({ textColor: getScoreColor(results.scores?.governance), pathColor: getScoreColor(results.scores?.governance), trailColor: 'rgba(255, 255, 255, 0.1)', textSize: '24px' })}
+                   />
+                 </ScoreCircle>
+                <ScoreLabel>Governance</ScoreLabel>
+                <ScoreValue $color={getScoreColor(results.scores?.governance)}>
+                  {results.scores?.governance ?? 'N/A'}{typeof results.scores?.governance === 'number' ? '/100' : ''}
+                </ScoreValue>
+              </ScoreCard>
+            </ScoreOverview>
+
+            {/* Charts (Data prep uses getChartScoreValue which defaults N/A to 0) */}
+            <ChartsSection>
+                 <ChartCard initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5, duration: 0.6 }}>
+                     <h3>ESG Pillars Comparison</h3>
+                     <ResponsiveContainer width="100%" height={350}>
+                         <BarChart data={barData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                             <XAxis dataKey="name" stroke="rgba(255, 255, 255, 0.5)" tick={{ fill: 'rgba(255, 255, 255, 0.7)' }} />
+                             <YAxis stroke="rgba(255, 255, 255, 0.5)" tick={{ fill: 'rgba(255, 255, 255, 0.7)' }} domain={[0, 100]}/>
+                             <Tooltip contentStyle={{ background: 'rgba(0, 0, 0, 0.95)', border: '1px solid rgba(0, 255, 170, 0.3)', borderRadius: '8px', color: '#fff' }} />
+                             <Bar dataKey="score" radius={[8, 8, 0, 0]}>
+                                 {barData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={['#00ff88', '#00ddbb', '#00bb99'][index % 3]} />
+                                 ))}
+                             </Bar>
+                         </BarChart>
+                     </ResponsiveContainer>
+                 </ChartCard>
+
+                 <ChartCard initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6, duration: 0.6 }}>
+                     <h3>ESG Performance Radar</h3>
+                     <ResponsiveContainer width="100%" height={350}>
+                         <RadarChart data={radarData}>
+                             <PolarGrid stroke="rgba(0, 255, 170, 0.2)" />
+                             <PolarAngleAxis dataKey="subject" stroke="rgba(255, 255, 255, 0.7)" tick={{ fill: 'rgba(255, 255, 255, 0.7)' }} />
+                             <PolarRadiusAxis stroke="rgba(255, 255, 255, 0.3)" tick={{ fill: 'rgba(255, 255, 255, 0.5)' }} domain={[0, 100]} />
+                             <Radar name="Score" dataKey="score" stroke="#00ffaa" fill="#00ffaa" fillOpacity={0.4} strokeWidth={3} />
+                         </RadarChart>
+                     </ResponsiveContainer>
+                 </ChartCard>
+
+                 {/* --- NEW: ESG RISK HEATMAP --- */}
+                 {/* This spans two columns if ChartsSection has 2 columns */}
+                 {results.risk_heatmap && ( // Check if heatmap data exists
+                   <ChartCard
+                      style={{ gridColumn: "span 2" }} // Make it span full width
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7, duration: 0.6 }}
+                   >
+                      <h3>ESG Risk Heatmap</h3>
+                      <p style={{ color: '#aaa', marginTop: '-1.5rem', marginBottom: '2rem', fontSize: '0.9rem'}}>
+                        Based on volume and trust of negative news & social media. Higher scores indicate higher risk.
+                      </p>
+
+                      {/* Environmental Section */}
+                      <HeatmapHeader>Environmental</HeatmapHeader>
+                      <HeatmapGrid style={{ marginBottom: '2rem' }}>
+                        {heatmapCategories.Environmental.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+                      
+                      {/* Social Section */}
+                      <HeatmapHeader>Social</HeatmapHeader>
+                      <HeatmapGrid style={{ marginBottom: '2em' }}>
+                        {heatmapCategories.Social.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+
+                      {/* Governance Section */}
+                      <HeatmapHeader>Governance</HeatmapHeader>
+                      <HeatmapGrid>
+                        {heatmapCategories.Governance.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+                   </ChartCard>
+                 )}
+                 {/* --- END: ESG RISK HEATMAP --- */}
+
+            </ChartsSection>
+
+            {/* --- Key ESG Risk Areas Section (Keep as is) --- */}
+            {results.suggestions && results.suggestions.length > 0 && (
+                 <RiskAreaSection
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8, duration: 0.5 }}
+                 >
+                     <h3><FiAlertTriangle /> Key ESG Risk Areas Identified</h3>
+                     <ul>
+                         {results.suggestions.map((riskSummary, index) => (
+                             <li key={index}>{riskSummary}</li>
+                         ))}
+                     </ul>
+                 </RiskAreaSection>
+            )}
+
+            {/* --- FEEDS SECTION (Keep as is) --- */}
+            <FeedsSection>
+                {results.modules?.map((module, index) => (
+                    <ModuleCard
+                        key={index}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.9 + index * 0.1, duration: 0.5 }}
                     >
-                        <FiXCircle style={{ fontSize: '2rem', color: '#ff6b6b', marginBottom: '0.5rem' }} />
-                        <h3 style={{ fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>Analysis Error</h3>
-                        <p style={{ color: '#aaa' }}>{error}</p>
-                    </ErrorMessage>
-                )}
-              </AnimatePresence>
+                        <h3>{module.module_name} (Overall: {module.sentiment})</h3>
+                        {module.feed && module.feed.length > 0 ? (
+                            module.feed.map((item, itemIndex) => (
+                                <FeedItem key={itemIndex}>
+                                    <p><strong>Source:</strong> {item.source}</p>
+                                    <p>{item.text}</p>
+                                    <p>
+                                      <small>
+                                        Sentiment: {item.sentiment}
+                                        ({item.sentiment_score !== undefined ? item.sentiment_score.toFixed(2) : 'N/A'})
+                                         | Category: {item.category?.split(':')[0]}
+                                      </small>
+                                    </p>
+                                    {item.explanation && <p><small><i>Reason: {item.explanation}</i></small></p>}
+                                    {item.url && item.url !== '#' &&
+                                      <a href={item.url} target="_blank" rel="noopener noreferrer">Read More &rarr;</a>
+                                    }
+                                </FeedItem>
+                            ))
+                        ) : (
+                           <p style={{color: '#888'}}>No relevant items found for this module.</p>
+                        )}
+                    </ModuleCard>
+                ))}
+            </FeedsSection>
 
-              {/* Display Results Here */}
-              <AnimatePresence>
-                {results && !error && (
-                    <ResultsContainer
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        theme={theme} // Pass theme
-                    >
-                        <ResultsTitle theme={theme}>Analysis Results for {results.company_name}</ResultsTitle>
-                        <ResultStatus 
-                            status={results.status} 
-                            theme={theme}
-                        >
-                            Status: <strong>{results.status}</strong>
-                        </ResultStatus>
-                        <ResultScore 
-                            score={results.credibility_score}
-                            theme={theme}
-                        >
-                            Report Credibility Score: <span>{results.credibility_score}/100</span>
-                            <br/>
-                            <small>(Based on vague vs. concrete language)</small>
-                        </ResultScore>
-                        
-                        <ResultList>
-                            {/* Ensure results.report is an array before mapping */}
-                            {Array.isArray(results.report) && results.report.map((flag, index) => (
-                                <ResultItem 
-                                    key={index}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    theme={theme}
-                                >
-                                    {flag}
-                                </ResultItem>
-                            ))}
-                        </ResultList>
-                    </ResultsContainer>
-                )}
-              </AnimatePresence>
-            </Card>
-            {/* --- END MODIFIED Card 1 --- */}
-
-            {/* --- Static Cards 2, 3, 4 (Keep as is) --- */}
-            {cardDetails.slice(1).map((card, idx) => (
-              <Card
-                key={idx + 1}
-                ref={(el) => (cardsRef.current[idx + 1] = el)}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-              >
-                <CardTitle>Step {idx + 2}: <span>{card.title}</span></CardTitle>
-                <CardDescription>{card.description}</CardDescription>
-              </Card>
-            ))}
-            {/* --- END Static Cards --- */}
-
-          </ContentCards>
-        </StickyContent>
-      </StickyWrapper>
-
-      {/* ... (Keep CTASection as is) ... */}
-      <CTASection>
-          <CTAHeader
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9 }}
-          >
-            Take Control of Your <span>ESG Transparency</span>
-          </CTAHeader>
-          <CTASubtext
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            Upload your ESG reports and discover any inconsistencies flagged by AI-powered greenwash analysis.
-            Trust, transparency, and accountability start here.
-          </CTASubtext>
-          <HeroButton
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            as="button"
-            style={{ padding: "1.2rem 3.8rem", fontSize: "1.22rem" }}
-            onClick={() => scrollToCard(0)} // Also scroll to first card
-          >
-            Get Started Now
-          </HeroButton>
-      </CTASection>
-    </PageWrapper>
+          </ResultsSection>
+        )}
+      </AnimatePresence>
+    </DashboardPage>
   );
 };
 
-export default GreenwashDetectionPage;
+// --- Export the wrapper component as the default ---
+export default DashboardPageWrapper;
 

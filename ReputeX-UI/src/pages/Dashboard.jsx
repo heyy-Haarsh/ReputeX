@@ -1,14 +1,15 @@
 // src/pages/Dashboard.jsx
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { ThemeProvider } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 // Use FiAlertTriangle for risks, FiInfo for tooltips
 import { FiSearch, FiLoader, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiXCircle, FiInfo, FiAlertTriangle } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { theme } from '../theme.js'; // <-- FIX: Assumes theme.js is at src/theme.js
 
-// --- STYLED COMPONENTS (Includes RiskAreaSection) ---
+// --- STYLED COMPONENTS (Includes RiskAreaSection & Heatmap) ---
 const DashboardPage = styled.div`
   background: ${props => props.theme.colors.darkBg};
   min-height: 100vh;
@@ -406,7 +407,6 @@ const FeedItem = styled.div`
   a { color: ${props => props.theme.colors.primaryGreen}; text-decoration: none; font-weight: 600; font-size: 0.9em; word-break: break-all; &:hover { text-decoration: underline; } }
 `;
 
-// --- Renamed SuggestionsSection to RiskAreaSection ---
 const RiskAreaSection = styled(motion.div)`
   margin-top: 4rem;
   background: rgba(255, 170, 0, 0.05); /* Orange hint for risk */
@@ -444,12 +444,77 @@ const RiskAreaSection = styled(motion.div)`
     }
   }
 `;
+
+// --- NEW STYLED COMPONENTS FOR HEATMAP ---
+const HeatmapGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  
+  @media (max-width: ${props => props.theme.breakpoints.mobile}) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const HeatmapCell = styled(motion.div)`
+  background: ${props => props.$riskColor}20; /* Use risk color with low opacity */
+  border: 1px solid ${props => props.$riskColor}80; /* Border with medium opacity */
+  border-radius: ${props => props.theme.borderRadius.md}; /* Use theme border radius */
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 30px ${props => props.$riskColor}30;
+  }
+`;
+
+const HeatmapLabel = styled.p`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: ${props => props.theme.colors.textSecondary};
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const HeatmapValue = styled.p`
+  font-size: 2rem;
+  font-weight: 700;
+  color: ${props => props.$riskColor};
+  margin: 0;
+`;
+
+const HeatmapHeader = styled.h4`
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: ${props => props.theme.colors.textPrimary};
+    margin: 0 0 1rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.5;
+    text-align: left; /* Align section headers */
+    padding-top: 1rem; /* Add space between sections */
+`;
 // --- END STYLED COMPONENTS ---
 
 
 const features = [
-  // ... (Keep features array as is) ...
+  { icon: <FiSearch />, title: 'Real-Time Data', description: 'Fetches latest news & Reddit discussions.', color: '#00ff88' },
+  { icon: <FiTrendingUp />, title: 'AI Classification', description: 'Classifies content into E, S, G categories.', color: '#00ddbb' },
+  { icon: <FiAlertCircle />, title: 'Sentiment Analysis', description: 'Analyzes public sentiment for scores.', color: '#00bb99' },
+  { icon: <FiCheckCircle />, title: 'Overall Scoring', description: 'Generates overall ESG reputation score.', color: '#00ffaa' }
 ];
+
+// --- === MAIN COMPONENT WRAPPER === ---
+const DashboardPageWrapper = () => {
+  return (
+    <ThemeProvider theme={theme}>
+      <Dashboard />
+    </ThemeProvider>
+  )
+}
 
 // --- === MAIN COMPONENT === ---
 const Dashboard = () => {
@@ -485,7 +550,7 @@ const Dashboard = () => {
   // --- END handleSearch function ---
 
 
-  // --- Helper functions (Updated getScoreValue to return 50 for N/A) ---
+  // --- Helper functions (Updated getScoreValue to use 50 default for "N/A") ---
   const getScoreValue = (score) => {
     // Return 50 if "N/A" for visual consistency in progress bars/charts
     return (score === "N/A" || score === null || score === undefined) ? 50 : Number(score);
@@ -524,10 +589,27 @@ const Dashboard = () => {
   ] : [];
   // --- End data preparation ---
 
+  // --- NEW: Helper function and data for Heatmap ---
+  const getRiskColor = (score) => {
+    // Risk score is 0 or low
+    if (!score || score < 1.0) return '#00ddbb'; // Low risk (Teal)
+    // Medium risk
+    if (score < 3.0) return '#ffc107'; // Medium risk (Yellow)
+    // High risk
+    return '#ff6b6b'; // High risk (Red)
+  };
+  
+  const heatmapCategories = {
+    Environmental: ["Climate & Emissions", "Waste & Pollution", "Resources & Biodiversity"],
+    Social: ["Labor & Safety", "Diversity & Inclusion", "Product & Data"],
+    Governance: ["Ethics & Compliance", "Board & Executive", "Transparency & Reporting"]
+  };
+  // --- END NEW Heatmap helpers ---
+
 
   return (
     <DashboardPage>
-      {/* Hero Section */}
+      {/* Hero Section (Keep as is) */}
       <HeroSection>
         <HeroContent>
            <HeroTitle initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
@@ -557,11 +639,33 @@ const Dashboard = () => {
       </HeroSection>
 
       {/* Features Section (Keep as is) */}
-      {!results && !loading && !error && ( <FeaturesSection> {/* ... */} </FeaturesSection> )}
+      {!results && !loading && !error && (
+         <FeaturesSection>
+             <FeaturesGrid>
+                 {features.map((feature, index) => (
+                     <FeatureCard
+                       key={index} $color={feature.color}
+                       initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
+                       viewport={{ once: true }} transition={{ delay: index * 0.1, duration: 0.6 }}
+                     >
+                       <FeatureIcon $color={feature.color}>{feature.icon}</FeatureIcon>
+                       <FeatureTitle>{feature.title}</FeatureTitle>
+                       <FeatureDescription>{feature.description}</FeatureDescription>
+                     </FeatureCard>
+                 ))}
+             </FeaturesGrid>
+         </FeaturesSection>
+      )}
 
       {/* Error Message (Keep as is) */}
       <AnimatePresence>
-        {error && ( <ErrorMessage /* ... */ > {/* ... */} </ErrorMessage> )}
+        {error && (
+            <ErrorMessage initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                <FiXCircle />
+                <h3>Error Analyzing Company</h3>
+                <p>{error}</p>
+            </ErrorMessage>
+        )}
       </AnimatePresence>
 
       {/* Results Section */}
@@ -579,8 +683,7 @@ const Dashboard = () => {
               <ScoreCard $color={getScoreColor(results.overall_score)} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1, duration: 0.5 }}>
                   <ScoreCircle>
                     <CircularProgressbar
-                      // Use getScoreValue which defaults N/A to 50 for bar display
-                      value={getScoreValue(results.overall_score)}
+                      value={getScoreValue(results.overall_score)} // Use numeric value (50 for N/A)
                       text={`${results.overall_score}`} // Display original text ("N/A" or number)
                       styles={buildStyles({
                           textColor: getScoreColor(results.overall_score),
@@ -676,10 +779,72 @@ const Dashboard = () => {
                          </RadarChart>
                      </ResponsiveContainer>
                  </ChartCard>
+
+                 {/* --- NEW: ESG RISK HEATMAP --- */}
+                 {/* This spans two columns if ChartsSection has 2 columns */}
+                 {results.risk_heatmap && ( // Check if heatmap data exists
+                   <ChartCard
+                      style={{ gridColumn: "span 2" }} // Make it span full width
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.7, duration: 0.6 }}
+                   >
+                      <h3>ESG Risk Heatmap</h3>
+                      <p style={{ color: '#aaa', marginTop: '-1.5rem', marginBottom: '2rem', fontSize: '0.9rem'}}>
+                        Based on volume and trust of negative news & social media. Higher scores indicate higher risk.
+                      </p>
+
+                      {/* Environmental Section */}
+                      <HeatmapHeader>Environmental</HeatmapHeader>
+                      <HeatmapGrid style={{ marginBottom: '2rem' }}>
+                        {heatmapCategories.Environmental.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+                      
+                      {/* Social Section */}
+                      <HeatmapHeader>Social</HeatmapHeader>
+                      <HeatmapGrid style={{ marginBottom: '2em' }}>
+                        {heatmapCategories.Social.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+
+                      {/* Governance Section */}
+                      <HeatmapHeader>Governance</HeatmapHeader>
+                      <HeatmapGrid>
+                        {heatmapCategories.Governance.map((topic) => {
+                          const riskScore = results.risk_heatmap?.[topic] || 0;
+                          const riskColor = getRiskColor(riskScore);
+                          return (
+                            <HeatmapCell key={topic} $riskColor={riskColor} theme={theme}>
+                              <HeatmapLabel theme={theme}>{topic}</HeatmapLabel>
+                              <HeatmapValue $riskColor={riskColor}>{riskScore.toFixed(1)}</HeatmapValue>
+                            </HeatmapCell>
+                          );
+                        })}
+                      </HeatmapGrid>
+                   </ChartCard>
+                 )}
+                 {/* --- END: ESG RISK HEATMAP --- */}
+
             </ChartsSection>
 
-            {/* --- Key ESG Risk Areas Section --- */}
-            {/* Conditionally render this section based on results.suggestions */}
+            {/* --- Key ESG Risk Areas Section (Keep as is) --- */}
             {results.suggestions && results.suggestions.length > 0 && (
                  <RiskAreaSection
                     initial={{ opacity: 0, y: 20 }}
@@ -688,16 +853,14 @@ const Dashboard = () => {
                  >
                      <h3><FiAlertTriangle /> Key ESG Risk Areas Identified</h3>
                      <ul>
-                         {/* Map over the suggestions array (containing risk summaries) */}
                          {results.suggestions.map((riskSummary, index) => (
                              <li key={index}>{riskSummary}</li>
                          ))}
                      </ul>
                  </RiskAreaSection>
             )}
-            {/* --- End Risk Areas Section --- */}
 
-            {/* --- FEEDS SECTION --- */}
+            {/* --- FEEDS SECTION (Keep as is) --- */}
             <FeedsSection>
                 {results.modules?.map((module, index) => (
                     <ModuleCard
@@ -715,15 +878,12 @@ const Dashboard = () => {
                                     <p>
                                       <small>
                                         Sentiment: {item.sentiment}
-                                        {/* Safely display sentiment score */}
                                         ({item.sentiment_score !== undefined ? item.sentiment_score.toFixed(2) : 'N/A'})
-                                         | Category: {item.category?.split(':')[0]} {/* Show short category */}
+                                         | Category: {item.category?.split(':')[0]}
                                       </small>
                                     </p>
-                                    {/* Display explanation if it exists */}
                                     {item.explanation && <p><small><i>Reason: {item.explanation}</i></small></p>}
-                                    {/* Display link if valid */}
-                                    {item.url && item.url !== '#' && // Only show link if valid
+                                    {item.url && item.url !== '#' &&
                                       <a href={item.url} target="_blank" rel="noopener noreferrer">Read More &rarr;</a>
                                     }
                                 </FeedItem>
@@ -734,7 +894,6 @@ const Dashboard = () => {
                     </ModuleCard>
                 ))}
             </FeedsSection>
-            {/* --- END FEEDS SECTION --- */}
 
           </ResultsSection>
         )}
@@ -743,5 +902,6 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+// --- Export the wrapper component as the default ---
+export default DashboardPageWrapper;
 
