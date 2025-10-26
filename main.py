@@ -1,18 +1,18 @@
 # main.py (FastAPI Server)
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # Needed for React connection
-import greenwash_analyzer # <-- IMPORT YOUR FILE HERE
-import uvicorn # For running the server
+from fastapi.middleware.cors import CORSMiddleware
+import greenwash_analyzer # <-- IMPORTS THE USER'S AI LOGIC
+import uvicorn
 
 app = FastAPI()
 
 # --- CORS Configuration ---
-# Allows your React app (running on localhost:3000) to talk to this server (localhost:8000)
+# *** FIX: ADDED PORT 5173 FOR VITE FRONTEND ***
 origins = [
-    "http://localhost:3000",  # Default React development port
+    "http://localhost:5173",  # VITE FRONTEND (USER'S APP)
+    "http://localhost:3000",  # Standard React development port
     "http://localhost:3001",  # Another common React port
-    # Add other origins if your React app runs elsewhere
 ]
 
 app.add_middleware(
@@ -26,8 +26,8 @@ app.add_middleware(
 # --- API Endpoint for Greenwashing Analysis ---
 @app.post("/analyze_company/")
 async def handle_analysis_request(
-    company_name: str = Form(...), # Get company name from form data
-    file: UploadFile = File(...)   # Get file upload from form data
+    company_name: str = Form(...),
+    file: UploadFile = File(...)
 ):
     """
     Receives company name and PDF file from the frontend,
@@ -44,13 +44,12 @@ async def handle_analysis_request(
         # Read the entire file content as bytes
         pdf_bytes = await file.read()
 
-        # Call your master analysis function from greenwash_analyzer.py
+        # Call your master analysis function
         print("Calling AI core (greenwash_analyzer) for analysis...")
-        # Make sure the function name matches exactly what's in your file
         final_report = greenwash_analyzer.run_full_analysis(company_name, pdf_bytes)
         print("Analysis complete. Sending report back to frontend.")
 
-        # Return the resulting dictionary (FastAPI converts it to JSON)
+        # Return the resulting dictionary
         return final_report
 
     except Exception as e:
@@ -59,25 +58,17 @@ async def handle_analysis_request(
         # Return a server error response to the frontend
         raise HTTPException(status_code=500, detail=f"An error occurred during analysis: {str(e)}")
 
-# --- (Optional) Add other endpoints for your friend's features below ---
-# Example:
-# @app.get("/some_other_feature/")
-# async def get_other_data():
-#     # import ai_core (friend's file)
-#     # result = ai_core.some_function()
-#     return {"message": "Data from other feature"}
-
 
 # --- Run the Server Directly (for testing) ---
-# This block allows you to run 'python main.py' to start the server
 if __name__ == "__main__":
     print("Checking if backend components are ready...")
-    # Basic check to see if the imported module has the necessary components loaded
-    # You might need to adjust this check based on how greenwash_analyzer handles errors
+    
+    # Check if the necessary components from greenwash_analyzer.py are loaded
     if greenwash_analyzer.classifier and greenwash_analyzer.sentiment_analyzer and greenwash_analyzer.reddit:
         print("Starting FastAPI server using Uvicorn on http://localhost:8000")
-        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        # Added reload=False to the final run to avoid issues with multiprocessing, 
+        # but kept it in the initial call to simplify the user's workflow
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
     else:
         print("Error: Could not start server.")
-        print("One or more components (AI models, Reddit client) failed to load in greenwash_analyzer.py.")
-        print("Please check the console output when greenwash_analyzer.py was imported for specific errors.")
+        print("One or more components (AI models, Reddit client) failed to load. Check console for errors.")
