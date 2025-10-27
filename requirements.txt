@@ -6,3 +6,5 @@ torch
 pandas
 fuzzywuzzy[speedup] # Optional: for better de-duplication
 pymupdf
+python-multipart
+pydantic
