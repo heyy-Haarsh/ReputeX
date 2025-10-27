@@ -13,6 +13,8 @@ import Leaderboard from './pages/Leaderboard';
 import GreenwashAnalyzer from './pages/GreenwashAnalyzer.jsx'; // It's in the 'pages' folder
 import About from './pages/About';
 import Contact from './pages/Contact';
+import SelfReporting1 from './pages/SelfReporting1.jsx';
+import GreenwashDetectionPage from './pages/GreenwashDetectionPage.jsx';
 
 function App() {
   return (
@@ -25,13 +27,14 @@ function App() {
         <Route path="/leaderboard" element={<Leaderboard />} />
 
         {/* --- FIX 2: Use your desired path --- */}
-        <Route path="/greenwash-detector" element={<GreenwashAnalyzer />} />
+        <Route path="/greenwash-detector" element={<GreenwashAnalyzer/>} />
         {/* --- End Fix --- */}
 
         {/* <Route path="/analyzer" element={<GreenwashAnalyzer />} /> // Removed old path */}
         {/* <Route path="/GreenwashAnalyzer" element={<GreenwashAnalyzer />} /> // Removed old path */}
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/self-reporting" element={<SelfReporting1 />} />
 
       </Routes>
       <Footer />
