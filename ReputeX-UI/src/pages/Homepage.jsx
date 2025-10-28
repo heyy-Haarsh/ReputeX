@@ -13,7 +13,7 @@ const Homepage = () => {
       <Hero />
       <HowItWorks />
       <MainFeatures />
-      <LeaderboardPreview />
+      
       <Benefits />
       <CTASection />
     </>

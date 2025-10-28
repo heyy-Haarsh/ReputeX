@@ -394,27 +394,21 @@ const values = [
 const team = [
   {
     icon: <FiUsers />,
-    name: 'Sarah Johnson',
+    name: 'Samarth Patil',
     role: 'CEO & Founder',
     bio: 'ESG strategist with 15+ years in sustainability consulting.'
   },
   {
     icon: <FiUsers />,
-    name: 'Michael Chen',
+    name: 'Harshad Chavan',
     role: 'CTO',
     bio: 'AI/ML expert specializing in sentiment analysis and data science.'
   },
   {
     icon: <FiUsers />,
-    name: 'Emily Rodriguez',
+    name: 'Kaustubh Neemkar',
     role: 'Head of Research',
     bio: 'Environmental scientist driving our ESG methodology and standards.'
-  },
-  {
-    icon: <FiUsers />,
-    name: 'David Park',
-    role: 'Lead Engineer',
-    bio: 'Full-stack developer building scalable ESG analytics platforms.'
   }
 ];
 
@@ -429,7 +423,7 @@ const About = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            About ESG-Pulse
+            About ReputeX
           </HeroTitle>
           <HeroSubtitle
             initial={{ opacity: 0, y: 30 }}
@@ -455,7 +449,7 @@ const About = () => {
             >
               <h2>Our <span>Story</span></h2>
               <p>
-                Founded in 2024, ESG-Pulse was born from a simple observation: 
+                Founded in 2024, ReputeX was born from a simple observation: 
                 companies need better tools to understand their real ESG reputation, 
                 not just what they report.
               </p>

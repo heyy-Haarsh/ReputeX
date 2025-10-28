@@ -206,7 +206,7 @@ const Footer = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h3>ESG-Pulse</h3>
+            <h3>ReputeX</h3>
             <p>
               Real-time ESG reputation tracking powered by AI-driven news and social sentiment analysis. 
               Make informed, data-driven ESG decisions with confidence.
@@ -295,8 +295,9 @@ const Footer = () => {
           </LinkSection>
         </FooterContent>
         
+
         <FooterBottom>
-          <Copyright>© 2025 ESG-Pulse. All rights reserved.</Copyright>
+          <Copyright>© 2025 ReputeX. All rights reserved.</Copyright>
           <LegalLinks>
             <Link to="/privacy">Privacy Policy</Link>
             <Link to="/terms">Terms of Use</Link>

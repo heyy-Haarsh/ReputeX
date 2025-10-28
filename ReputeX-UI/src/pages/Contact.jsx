@@ -312,13 +312,13 @@ const contactInfo = [
   {
     icon: <FiMail />,
     title: 'Email Us',
-    text: 'support@esgpulse.com',
+    text: 'support@reputex.com',
     color: '#00ff88'
   },
   {
     icon: <FiPhone />,
     title: 'Call Us',
-    text: '+1 (555) 123-4567',
+    text: '+91 123-4567-890',
     color: '#00ddbb'
   },
   {
@@ -368,7 +368,7 @@ const Contact = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8 }}
         >
-          Have questions about ESG-Pulse? We'd love to hear from you. 
+          Have questions about ReputeX? We'd love to hear from you. 
           Send us a message and we'll respond as soon as possible.
         </HeroSubtitle>
       </HeroSection>

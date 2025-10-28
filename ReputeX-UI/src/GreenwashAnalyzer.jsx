@@ -21,6 +21,7 @@ const HeroSection = styled.section`
   padding: 4rem 5%;
   position: relative;
   overflow: hidden;
+  min-height: 90vh; 
 
   &::before {
     content: '';

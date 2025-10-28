@@ -2,6 +2,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom'; // <-- Import useNavigate
 
 const Section = styled.section`
   padding: ${props => props.theme.spacing.xl} 5%;
@@ -139,6 +140,8 @@ const SecondaryButton = styled(motion.button)`
 `;
 
 const CTASection = () => {
+    const navigate = useNavigate(); // Initialize navigate
+
   return (
     <Section>
       <Container>
@@ -148,8 +151,7 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-        Empower Your <span>ESG Journey</span> 🚀
-
+          Empower Your <span>ESG Journey</span> 🚀
         </Heading>
         
         <Subheading
@@ -159,8 +161,6 @@ const CTASection = () => {
           transition={{ delay: 0.2, duration: 0.6 }}
         >
           Answer a few interactive questions and get a lightning-fast, AI-verified ESG score combining live sentiment analysis and global credibility checks.
-
-
         </Subheading>
         
         <ButtonGroup
@@ -172,11 +172,10 @@ const CTASection = () => {
           <PrimaryButton
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => navigate("/self-reporting-form")}  // <-- Navigate on click
           >
             Check Your ESG Score
           </PrimaryButton>
-          
-          
         </ButtonGroup>
       </Container>
     </Section>

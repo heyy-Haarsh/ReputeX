@@ -23,7 +23,7 @@ const Sidebar = styled.div`
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
   width: 320px;
-  min-height: 460px;
+  min-height: 360px;
   box-shadow: 0 10px 30px rgba(0, 255, 170, 0.05);
 `;
 
@@ -73,7 +73,7 @@ const Card = styled(motion.div)`
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
-  height:350px;
+  height:150px;
   padding: 2.5rem;
   color: white;
   box-shadow: 0 10px 40px rgba(0, 255, 170, 0.05);

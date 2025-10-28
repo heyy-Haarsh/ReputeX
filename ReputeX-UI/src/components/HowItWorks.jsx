@@ -3,6 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { FiSearch, FiCpu, FiPieChart, FiCheckCircle, FiArrowRight } from 'react-icons/fi';
+import Spline from '@splinetool/react-spline';
+
 
 const Section = styled.section`
   padding: ${props => props.theme.spacing.xl} 5%;
@@ -172,18 +174,7 @@ const StepDescription = styled.p`
   color: ${props => props.theme.colors.textSecondary};
 `;
 
-const FeatureShowcase = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4rem;
-  align-items: center;
-  margin-top: 5rem;
-  
-  @media (max-width: ${props => props.theme.breakpoints.tablet}) {
-    grid-template-columns: 1fr;
-    gap: 3rem;
-  }
-`;
+
 
 const ShowcaseContent = styled(motion.div)`
   h3 {
@@ -351,6 +342,39 @@ const CTAButton = styled(motion.button)`
     transform: translateX(5px);
   }
 `;
+const SplineWrapper = styled(motion.div)`
+  width: 100%;
+  height: 600px;
+  min-width: 600px;
+  max-width: 750px;
+  margin: 0 auto;
+  border-radius: 26px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(0,255,170,0.07), #002620 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  
+  @media (max-width: 900px) {
+    max-width: 100%;
+    height: 330px;
+    border-radius: 20px;
+  }
+`;
+
+const FeatureShowcase = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 4rem;
+  align-items: center;
+  margin-top: 5rem;
+  @media (max-width: ${props => props.theme.breakpoints.tablet}) {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+`;
 
 const steps = [
   {
@@ -390,7 +414,6 @@ const features = [
   'Greenwashing detection algorithms',
   'Historical trend analysis'
 ];
-
 const HowItWorks = () => {
   return (
     <Section>
@@ -403,7 +426,6 @@ const HowItWorks = () => {
         >
           How <span>ReputeX</span> Works
         </Heading>
-        
         <Subtitle
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -413,7 +435,6 @@ const HowItWorks = () => {
           Our AI-powered platform analyzes thousands of data points to deliver 
           real-time ESG insights you can trust
         </Subtitle>
-        
         <ProcessFlow>
           {steps.map((step, index) => (
             <StepCard
@@ -433,7 +454,7 @@ const HowItWorks = () => {
             </StepCard>
           ))}
         </ProcessFlow>
-        
+
         <FeatureShowcase>
           <ShowcaseContent
             initial={{ opacity: 0, x: -50 }}
@@ -449,7 +470,6 @@ const HowItWorks = () => {
               sources to deliver instant, accurate ESG reputation analysis for any 
               publicly traded company.
             </p>
-            
             <FeatureList>
               {features.map((feature, index) => (
                 <FeatureItem
@@ -464,7 +484,6 @@ const HowItWorks = () => {
                 </FeatureItem>
               ))}
             </FeatureList>
-            
             <CTAButton
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -473,27 +492,18 @@ const HowItWorks = () => {
               <FiArrowRight />
             </CTAButton>
           </ShowcaseContent>
-          
-          <ShowcaseVisual
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+
+          <SplineWrapper
+            initial={{ opacity: 0, y: 80, scale: 0.85 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.9, type: "spring" }}
             viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
           >
-            <AnimatedChart
-              animate={{
-                scale: [1, 1.05, 1],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              <h4>85</h4>
-              <p>ESG Score</p>
-            </AnimatedChart>
-          </ShowcaseVisual>
+            {/* Replace the scene URL with your own Spline design */}
+            <Spline scene="https://prod.spline.design/eyxkMDiJCWp-4e7P/scene.splinecode"/>
+
+            
+          </SplineWrapper>
         </FeatureShowcase>
       </Container>
     </Section>

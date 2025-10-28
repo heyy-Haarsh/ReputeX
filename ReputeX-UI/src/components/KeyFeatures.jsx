@@ -2,14 +2,15 @@
 import React from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
+import { CardSpotlight } from '../components/aceternity/CardSpotlight';
 import { FiGlobe, FiMessageSquare, FiAward } from 'react-icons/fi';
 
+// Styled components
 const Section = styled.section`
   padding: ${props => props.theme.spacing.xl} 5%;
   background: ${props => props.theme.colors.darkBg};
   position: relative;
   overflow: hidden;
-  
   &::before {
     content: '';
     position: absolute;
@@ -18,10 +19,9 @@ const Section = styled.section`
     transform: translateX(-50%);
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(0, 255, 170, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 255, 170, 0.08) 0%, transparent 80%);
     pointer-events: none;
   }
-  
   @media (max-width: ${props => props.theme.breakpoints.tablet}) {
     padding: ${props => props.theme.spacing.lg} 3%;
   }
@@ -43,7 +43,6 @@ const Heading = styled(motion.h2)`
   -webkit-text-fill-color: transparent;
   background-clip: text;
   font-weight: 600;
-  
   @media (max-width: ${props => props.theme.breakpoints.tablet}) {
     font-size: 2.5rem;
   }
@@ -55,48 +54,31 @@ const FeaturesGrid = styled.div`
   gap: 3rem;
 `;
 
-const FeatureCard = styled(motion.div)`
-  background: rgba(0, 255, 170, 0.03);
-  backdrop-filter: blur(10px);
-  border: 1px solid ${props => props.theme.colors.border};
-  padding: 3rem 2rem;
-  border-radius: ${props => props.theme.borderRadius.lg};
-  text-align: center;
-  transition: all 0.4s ease;
-  
-  &:hover {
-    background: rgba(0, 255, 170, 0.08);
-    border-color: ${props => props.$color};
-    transform: translateY(-10px);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 40px ${props => props.$color}40;
-  }
-`;
-
 const IconCircle = styled.div`
-  width: 100px;
-  height: 100px;
+  width: 86px;
+  height: 86px;
   margin: 0 auto 2rem;
-  background: ${props => props.$color}10;
-  border: 3px solid ${props => props.$color};
+  background: ${props => props.$color}15;
+  border: 2.5px solid ${props => props.$color};
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 3rem;
+  font-size: 2.8rem;
   color: ${props => props.$color};
-  transition: all 0.3s ease;
-  
-  ${FeatureCard}:hover & {
-    transform: scale(1.1) rotate(10deg);
-    box-shadow: 0 0 40px ${props => props.$color}80;
+  transition: all 0.3s cubic-bezier(.6,-0.1,.9,1.2);
+
+  ${CardSpotlight}:hover & {
+    transform: scale(1.1) rotate(7deg);
+    box-shadow: 0 0 38px ${props => props.$color}88;
   }
 `;
 
 const FeatureTitle = styled.h3`
-  font-size: 1.7rem;
-  margin-bottom: 1rem;
+  font-size: 1.55rem;
+  margin-bottom: 0.6rem;
   color: ${props => props.theme.colors.textPrimary};
-  font-weight: 600;
+  font-weight: 700;
 `;
 
 const FeatureDescription = styled.p`
@@ -105,26 +87,28 @@ const FeatureDescription = styled.p`
   color: ${props => props.theme.colors.textSecondary};
 `;
 
+// Features for KEY features grid
 const features = [
   {
     icon: <FiGlobe />,
     title: 'News & Media Monitoring',
     description: 'Automatically pull real-time news covering ESG topics and classify them for you.',
-    color: '#00ff88'
+    color: '#00ff88',
   },
   {
     icon: <FiMessageSquare />,
     title: 'Social Sentiment Feed',
     description: 'Tap into Reddit and other social sources to capture employee and public perception, unfiltered and immediate.',
-    color: '#00ddbb'
+    color: '#00ddbb',
   },
   {
     icon: <FiAward />,
     title: 'Leaderboard & Benchmarking',
     description: 'View how companies stack up. Identify the ESG leaders, compare pillar-scores, and spot laggards.',
-    color: '#00bb99'
+    color: '#00bb99',
   }
 ];
+
 
 const KeyFeatures = () => {
   return (
@@ -138,23 +122,25 @@ const KeyFeatures = () => {
         >
           Key Features
         </Heading>
-        
         <FeaturesGrid>
           {features.map((feature, index) => (
-            <FeatureCard
+            <CardSpotlight
               key={index}
-              $color={feature.color}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              as={motion.div}
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.15, duration: 0.6 }}
+              transition={{ delay: index * 0.14, duration: 0.65 }}
+              style={{ cursor: "default" }}
             >
               <IconCircle $color={feature.color}>
                 {feature.icon}
               </IconCircle>
               <FeatureTitle>{feature.title}</FeatureTitle>
-              <FeatureDescription>{feature.description}</FeatureDescription>
-            </FeatureCard>
+              <FeatureDescription>
+                {feature.description}
+              </FeatureDescription>
+            </CardSpotlight>
           ))}
         </FeaturesGrid>
       </Container>

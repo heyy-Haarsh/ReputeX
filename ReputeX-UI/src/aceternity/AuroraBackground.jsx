@@ -5,6 +5,7 @@ import styled from "styled-components";
 
 const AuroraWrapper = styled.div`
   position: relative;
+  height:100vh;
   overflow: hidden;
   background: linear-gradient(135deg, #000000 0%, #001a14 100%);
 `;

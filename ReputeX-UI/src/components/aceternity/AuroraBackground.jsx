@@ -6,6 +6,8 @@ import styled from "styled-components";
 const AuroraWrapper = styled.div`
   position: relative;
   overflow: hidden;
+  z-index:0;
+  pointer-events: none; 
   background: linear-gradient(135deg, #000000 0%, #001a14 100%);
 `;
 
@@ -52,7 +54,7 @@ const AuroraGradient = styled(motion.div)`
 
 const AuroraContent = styled.div`
   position: relative;
-  z-index: 10;
+  z-index: 0;
 `;
 
 export const AuroraBackground = ({ children }) => {

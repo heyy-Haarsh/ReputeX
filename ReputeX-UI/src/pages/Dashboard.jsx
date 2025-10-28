@@ -79,7 +79,8 @@ const SearchSection = styled(motion.div)`
   z-index: 3;
 `;
 const SearchContainer = styled.div`
-  position: relative;
+  display: flex;
+  align-items: center;
   background: rgba(0, 255, 170, 0.05);
   border: 2px solid ${props => props.theme.colors.border};
   border-radius: ${props => props.theme.borderRadius.lg};
@@ -92,29 +93,25 @@ const SearchContainer = styled.div`
     background: rgba(0, 255, 170, 0.1);
   }
 `;
+
 const SearchInput = styled.input`
-  width: 100%;
-  padding: 1.5rem 5rem 1.5rem 2rem;
+  flex: 1;
+  padding: 1.5rem 1.5rem 1.5rem 2rem;
   background: transparent;
   border: none;
   color: ${props => props.theme.colors.textPrimary};
   font-size: 1.3rem;
   outline: none;
 
-  &::placeholder {
-    color: ${props => props.theme.colors.textSecondary};
-  }
-
+  &::placeholder { color: ${props => props.theme.colors.textSecondary}; }
   @media (max-width: ${props => props.theme.breakpoints.mobile}) {
     font-size: 1.1rem;
-    padding: 1.2rem 4rem 1.2rem 1.5rem;
+    padding: 1.2rem 1.2rem 1.2rem 1.5rem;
   }
 `;
+
 const SearchButton = styled(motion.button)`
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
+  margin-left: 1rem;
   padding: 1rem 2rem;
   background: ${props => props.theme.colors.gradientButton};
   color: ${props => props.theme.colors.darkBg};
@@ -127,16 +124,14 @@ const SearchButton = styled(motion.button)`
   align-items: center;
   gap: 0.5rem;
 
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
   @media (max-width: ${props => props.theme.breakpoints.mobile}) {
-    padding: 0.8rem 1.5rem;
+    padding: 0.8rem 1.4rem;
     font-size: 1rem;
+    margin-left: 0.5rem;
   }
 `;
+
 const LoadingSpinner = styled(motion.div)`
   animation: spin 1s linear infinite;
 
@@ -497,6 +492,55 @@ const HeatmapHeader = styled.h4`
     text-align: left; /* Align section headers */
     padding-top: 1rem; /* Add space between sections */
 `;
+
+const RisksGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+`;
+
+const RiskCard = styled(motion.div)`
+  background: rgba(255, 170, 0, 0.10);
+  border: 2px solid #ffc107;
+  border-radius: ${props => props.theme.borderRadius.lg};
+  padding: 1.8rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition: box-shadow 0.3s;
+  box-shadow: 0 4px 24px rgba(255, 170, 0, 0.10);
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(255, 170, 0, 0.22);
+    background: rgba(255, 170, 0, 0.19);
+    border-color: #ff6b6b;
+  }
+`;
+
+const RiskHeader = styled.div`
+  display: flex;
+  align-items: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 0.9rem;
+  color: #ffc107;
+
+  svg {
+    color: #ff6b6b;
+    font-size: 2rem;
+    margin-right: 0.8rem;
+  }
+`;
+
+const RiskDescription = styled.p`
+  color: ${props => props.theme.colors.textSecondary};
+  font-size: 1.07rem;
+  line-height: 1.6;
+  margin: 0;
+`;
+
 // --- END STYLED COMPONENTS ---
 
 
@@ -844,21 +888,38 @@ const Dashboard = () => {
 
             </ChartsSection>
 
-            {/* --- Key ESG Risk Areas Section (Keep as is) --- */}
-            {results.suggestions && results.suggestions.length > 0 && (
-                 <RiskAreaSection
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8, duration: 0.5 }}
-                 >
-                     <h3><FiAlertTriangle /> Key ESG Risk Areas Identified</h3>
-                     <ul>
-                         {results.suggestions.map((riskSummary, index) => (
-                             <li key={index}>{riskSummary}</li>
-                         ))}
-                     </ul>
-                 </RiskAreaSection>
-            )}
+           {results.suggestions && results.suggestions.length > 0 && (
+  <section>
+    <h3 style={{
+      fontSize: '1.7rem',
+      fontWeight: 700,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.7rem',
+      color: '#ffc107'
+    }}>
+      <FiAlertTriangle />
+      Key ESG Risk Areas Identified
+    </h3>
+    <RisksGrid>
+      {results.suggestions.map((riskSummary, index) => (
+        <RiskCard
+          key={index}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.08, duration: 0.45 }}
+        >
+          <RiskHeader>
+            <FiAlertTriangle />
+            Risk {index + 1}
+          </RiskHeader>
+          <RiskDescription>{riskSummary}</RiskDescription>
+        </RiskCard>
+      ))}
+    </RisksGrid>
+  </section>
+)}
+
 
             {/* --- FEEDS SECTION (Keep as is) --- */}
             <FeedsSection>

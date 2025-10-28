@@ -15,7 +15,8 @@ import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 // --- Feature Page Imports ---
 import GreenwashAnalyzer from './pages/GreenwashAnalyzer.jsx';
-import SelfReporting from './pages/SelfReporting.jsx'; // Corrected import
+import SelfReporting1 from './pages/SelfReporting1.jsx'; 
+import NewSelfReporting from './NewSelfReporting.jsx';
 
 function App() {
   return (
@@ -33,11 +34,13 @@ function App() {
         <Route path="/greenwash-detector" element={<GreenwashAnalyzer />} /> 
         
         {/* --- FEATURE 2: SELF-ASSESSMENT ROUTE --- */}
-        <Route path="/self-reporting" element={<SelfReporting />} /> 
+        <Route path="/newSelfReporting" element={<NewSelfReporting/>} /> 
+        <Route path="/self-reporting" element={<SelfReporting1 />} /> 
         
         {/* --- Info Pages --- */}
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
 
       </Routes>
       <Footer />

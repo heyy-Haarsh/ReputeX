@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { motion } from "framer-motion";
 import Spline from "@splinetool/react-spline";
 import { AuroraBackground } from "../aceternity/AuroraBackground";
+import { useNavigate } from 'react-router-dom';  
 
 const Wrapper = styled.section`
   min-height: 90vh;
@@ -18,8 +19,11 @@ const Content = styled.div`
   margin: 0 auto;
   text-align: center;
   position: relative;
-  z-index: 10;
+  z-index: 20;
+    border: 1px solid red;
+
 `;
+
 
 const Title = styled(motion.h1)`
   font-size: 5rem;
@@ -66,40 +70,45 @@ const SplineBg = styled.div`
   top: 60%;
   width: 80vw;
   height: 70vh;
-  z-index: 1;
+  z-index: -1;
   pointer-events: none;
   transform: translate(-50%,-55%);
   opacity: 0.47;
 `;
+const HeroSection = () => {
+  const navigate = useNavigate();  // initialize navigate function
 
-const HeroSection = () => (
-  <AuroraBackground>
-    <Wrapper>
-      <Content>
-        <Title
-          initial={{ opacity: 0, y: 52 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}>
-          ESG <span>Self-Reporting Engine</span>
-        </Title>
-        <Subtitle
-          initial={{ opacity: 0, y: 32 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18, duration: 0.8 }}>
-          Instantly evaluate your company's ESG performance with our <span style={{color:"#00ffaa"}}>AI-powered</span> tool. Get transparent, accurate scores—blending your data and public insights.
-        </Subtitle>
-        <Button
-          whileHover={{ scale: 1.065 }}
-          whileTap={{ scale: 0.96 }}
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.79 }}>
-          Start Your Assessment
-        </Button>
-      </Content>
-      
-    </Wrapper>
-  </AuroraBackground>
-);
+  return (
+    <AuroraBackground>
+      <Wrapper>
+        <Content>
+          <Title
+            initial={{ opacity: 0, y: 52 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            ESG <span>Self-Reporting Engine</span>
+          </Title>
+          <Subtitle
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18, duration: 0.8 }}
+          >
+            Instantly evaluate your company's ESG performance with our <span style={{color:"#00ffaa"}}>AI-powered</span> tool. Get transparent, accurate scores—blending your data and public insights.
+          </Subtitle>
+          <Button
+  onClick={() => {
+    console.log("Button clicked");
+    navigate("/newSelfReporting");
+  }}
+>
+  Start Your Assessment
+</Button>
+
+        </Content>
+      </Wrapper>
+    </AuroraBackground>
+  );
+};
 
 export default HeroSection;

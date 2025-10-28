@@ -387,6 +387,14 @@ const Navbar = () => {
           </FeatureDropdown>
           
           <NavLink 
+            to="/leaderboard" 
+            onClick={() => setIsOpen(false)}
+            $active={location.pathname === '/leaderboard'}
+          >
+            Leaderboard
+          </NavLink>
+
+          <NavLink 
             to="/about" 
             onClick={() => setIsOpen(false)}
             $active={location.pathname === '/about'}
